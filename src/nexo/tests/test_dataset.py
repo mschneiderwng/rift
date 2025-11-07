@@ -8,8 +8,8 @@ from attrs import Factory, define, frozen
 from multimethod import multimethod
 from precisely import assert_that, contains_exactly, equal_to, is_instance
 
-from nexo.datasets import Backend, Dataset, Stream, ancestor, prune, send, sync
-from nexo.snapshots import Bookmark, Snapshot
+from rift.datasets import Backend, Dataset, Stream, ancestor, prune, send, sync
+from rift.snapshots import Bookmark, Snapshot
 
 structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING))
 
@@ -381,25 +381,25 @@ def test_sync():
 
 
 def test_sync_filtered():
-    s1 = Snapshot(fqn="source/A@nexo_s1", guid="uuid:source/A@nexo_s1", creation="1")
+    s1 = Snapshot(fqn="source/A@rift_s1", guid="uuid:source/A@rift_s1", creation="1")
     s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
-    s3 = Snapshot(fqn="source/A@nexo_s3", guid="uuid:source/A@nexo_s3", creation="3")
+    s3 = Snapshot(fqn="source/A@rift_s3", guid="uuid:source/A@rift_s3", creation="3")
     s4 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s4", creation="4")
     source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2, s3, s4]))
     target = Dataset(InMemoryBackend("target/backups/A", snapshots_data=[]))
 
     # sync newer from source to target
-    sync(source, target, regex="nexo_.*", dry_run=False)
+    sync(source, target, regex="rift_.*", dry_run=False)
     assert_that(target.snapshots(), contains_exactly(s1, s3))
 
 
 def test_prune():
-    s1 = Snapshot(fqn="source/A@nexo_s1_weekly", guid="uuid:source/A@s1", creation="1")
-    s2 = Snapshot(fqn="source/A@nexo_s2_weekly", guid="uuid:source/A@s2", creation="2")
-    s3 = Snapshot(fqn="source/A@nexo_s3_daily", guid="uuid:source/A@s3", creation="3")
-    s4 = Snapshot(fqn="source/A@nexo_s4_monthly", guid="uuid:source/A@s4", creation="4")
+    s1 = Snapshot(fqn="source/A@rift_s1_weekly", guid="uuid:source/A@s1", creation="1")
+    s2 = Snapshot(fqn="source/A@rift_s2_weekly", guid="uuid:source/A@s2", creation="2")
+    s3 = Snapshot(fqn="source/A@rift_s3_daily", guid="uuid:source/A@s3", creation="3")
+    s4 = Snapshot(fqn="source/A@rift_s4_monthly", guid="uuid:source/A@s4", creation="4")
     source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2, s3, s4]))
-    policy = {"nexo_.*_daily": 5, "nexo_.*_weekly": 1, "nexo_.*_monthly": 0}
+    policy = {"rift_.*_daily": 5, "rift_.*_weekly": 1, "rift_.*_monthly": 0}
     prune(source, policy, dry_run=False)
 
     assert_that(source.snapshots(), contains_exactly(s2, s3))

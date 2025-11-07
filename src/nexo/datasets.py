@@ -6,7 +6,7 @@ import structlog
 from attrs import define, frozen
 from multimethod import multimethod
 
-from nexo.snapshots import Bookmark, Snapshot
+from rift.snapshots import Bookmark, Snapshot
 
 guid = str
 
@@ -193,28 +193,28 @@ def send(
 
     if not target.exists():
         stream = source.send(snapshot)
-        log.info(f"nexo send (full) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{source.fqn}'")
+        log.info(f"rift send (full) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{source.fqn}'")
         return stream.to(target, bwlimit=bwlimit, dry_run=dry_run)
 
     if snapshot.guid in map(attrgetter("guid"), target.snapshots()):
-        log.info(f"nexo send '{snapshot.fqn}' to '{source.fqn}' skipped since snapshot already on target")
+        log.info(f"rift send '{snapshot.fqn}' to '{source.fqn}' skipped since snapshot already on target")
         return None
 
     elif (token := target.resume_token()) is not None:
         stream = source.send(token)
-        log.info(f"nexo send (resume) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{source.fqn}'")
+        log.info(f"rift send (resume) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{source.fqn}'")
         log.debug(f"resume send with token='{token}' [{sizeof_fmt(stream.size())}]")
         return stream.to(target, bwlimit=bwlimit, dry_run=dry_run)
 
     elif (base := ancestor(snapshot, source, target)) is not None:
         stream = source.send(snapshot, base)
-        log.info(f"nexo send (incremental) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{source.fqn}'")
+        log.info(f"rift send (incremental) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{source.fqn}'")
         log.debug(f"incremental send '{snapshot.fqn}' from base '{base.fqn}' [{sizeof_fmt(stream.size())}]")
         return stream.to(target, bwlimit=bwlimit, dry_run=dry_run)
 
     else:
         stream = source.send(snapshot)
-        log.info(f"nexo send (full) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{source.fqn}'")
+        log.info(f"rift send (full) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{source.fqn}'")
         return stream.to(target, bwlimit=bwlimit, dry_run=dry_run)
 
 
@@ -228,7 +228,7 @@ def sync(
 ) -> None:
     """Send all snapshots from source to target which match the regex"""
     log = structlog.get_logger()
-    log.info(f"nexo sync newer snapshots from '{source.fqn}' to '{target.fqn}'")
+    log.info(f"rift sync newer snapshots from '{source.fqn}' to '{target.fqn}'")
 
     if not target.exists() or len(target.snapshots()) == 0:
         # send all snapshots
@@ -268,7 +268,7 @@ def sync(
 def prune(dataset: Dataset, policy: dict[str, int], *, dry_run: bool) -> None:
     """Prune old snapshots"""
     # retention policy is a dict, mapping from regex to the number of snapshots to keep
-    # for example, {"nexo_.*_hourly": 24, "nexo_.*_weekly": 7}
+    # for example, {"rift_.*_hourly": 24, "rift_.*_weekly": 7}
 
     log = structlog.get_logger()
 
@@ -285,7 +285,7 @@ def prune(dataset: Dataset, policy: dict[str, int], *, dry_run: bool) -> None:
         obsolete += destroy
 
         log.info(
-            f"nexo prune '{dataset.fqn}' of '{regex}': {keep}/{len(retain)}/{len(snapshots)} destroy {len(destroy)}"
+            f"rift prune '{dataset.fqn}' of '{regex}': {keep}/{len(retain)}/{len(snapshots)} destroy {len(destroy)}"
         )
 
         # create debug output

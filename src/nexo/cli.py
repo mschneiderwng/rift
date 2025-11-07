@@ -10,11 +10,11 @@ from typing import Iterable
 import click
 import structlog
 
-import nexo.datasets
-from nexo.commands import SystemRunner
-from nexo.datasets import Dataset
-from nexo.snapshots import Bookmark, Snapshot
-from nexo.zfs import ZfsBackend
+import rift.datasets
+from rift.commands import SystemRunner
+from rift.datasets import Dataset
+from rift.snapshots import Bookmark, Snapshot
+from rift.zfs import ZfsBackend
 
 
 def configure_logging(verbosity):
@@ -158,7 +158,7 @@ def send(source, target, bwlimit, dry_run, verbose):
         remote, path = target
         target = Dataset(ZfsBackend(path=path, remote=remote, runner=SystemRunner()))
 
-        return nexo.datasets.send(snapshot, source, target, bwlimit=bwlimit, dry_run=dry_run)
+        return rift.datasets.send(snapshot, source, target, bwlimit=bwlimit, dry_run=dry_run)
 
 
 @click.command()
@@ -168,8 +168,8 @@ def send(source, target, bwlimit, dry_run, verbose):
     "--filter",
     "-f",
     "regex",
-    default="nexo.*",
-    help="Sync only snapshots which match regex (default: 'nexo.*').",
+    default="rift.*",
+    help="Sync only snapshots which match regex (default: 'rift.*').",
 )
 @click.option("--bwlimit", help="Bandwidth limit (needs mbuffer).")
 @dry_run_option()
@@ -185,12 +185,12 @@ def sync(source, target, regex, bwlimit, dry_run, verbose):
         remote, path = target
         target = Dataset(ZfsBackend(path=path, remote=remote, runner=SystemRunner()))
 
-        nexo.datasets.sync(source, target, regex=regex, bwlimit=bwlimit, dry_run=dry_run)
+        rift.datasets.sync(source, target, regex=regex, bwlimit=bwlimit, dry_run=dry_run)
 
 
 @click.command()
 @click.argument("dataset", type=DATASET_TYPE)
-@click.option("--name", default="nexo", help="Snapshot name (default: 'nexo').")
+@click.option("--name", default="rift", help="Snapshot name (default: 'rift').")
 @click.option("--tag", default=None, help="Snapshot tag, e.g. 'hourly'.")
 @click.option(
     "--timestamp/--no-timestamp",
@@ -228,8 +228,8 @@ def snapshot(dataset, name, tag, timestamp, bookmark, verbose):
     "--filter",
     "-f",
     "regex",
-    default="nexo.*",
-    help="Show only snapshots which match regex (default: 'nexo.*').",
+    default="rift.*",
+    help="Show only snapshots which match regex (default: 'rift.*').",
 )
 @click.option("--snapshots/--no-snapshots", default=True, help="List snapshots (default: True).")
 @click.option("--bookmarks/--no-bookmarks", default=False, help="List bookmarks (default: False).")
@@ -256,7 +256,7 @@ def list_snapshots(dataset, regex, snapshots, bookmarks, verbose):
     nargs=2,  # expect 2 arguments per use: e.g. "24 .*_hourly"
     multiple=True,  # allow repeating the option
     type=(int, str),  # types for the 2 arguments
-    help="Retention rule (e.g. '--keep 24 nexo_.*_hourly --keep 4 nexo_.*_weekly')",
+    help="Retention rule (e.g. '--keep 24 rift_.*_hourly --keep 4 rift_.*_weekly')",
 )
 @dry_run_option()
 @verbose_option()
@@ -268,7 +268,7 @@ def prune(dataset, keep, dry_run, verbose):
         dataset: Dataset = Dataset(ZfsBackend(path=path, remote=remote, runner=SystemRunner()))
 
         policy = {regex: count for count, regex in keep}
-        nexo.datasets.prune(dataset=dataset, policy=policy, dry_run=dry_run)
+        rift.datasets.prune(dataset=dataset, policy=policy, dry_run=dry_run)
 
 
 main.add_command(send)

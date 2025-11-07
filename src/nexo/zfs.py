@@ -7,9 +7,9 @@ import structlog
 from attrs import field, frozen
 from multimethod import multimethod
 
-from nexo.commands import NoSuchDatasetError, Runner
-from nexo.datasets import Backend, Stream
-from nexo.snapshots import Bookmark, Snapshot
+from rift.commands import NoSuchDatasetError, Runner
+from rift.datasets import Backend, Stream
+from rift.snapshots import Bookmark, Snapshot
 
 
 def ssh(remote: Optional[str]) -> tuple[str, ...]:

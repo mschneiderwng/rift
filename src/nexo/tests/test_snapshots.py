@@ -1,6 +1,6 @@
 from precisely import assert_that, equal_to
 
-from nexo.snapshots import Bookmark, Snapshot
+from rift.snapshots import Bookmark, Snapshot
 
 
 def test_parse_snapshot():

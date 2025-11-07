@@ -3,9 +3,9 @@ from typing import Optional, Sequence
 from attrs import Factory, define
 from precisely import assert_that, equal_to
 
-from nexo.commands import NoSuchDatasetError, Runner
-from nexo.snapshots import Bookmark, Snapshot
-from nexo.zfs import ZfsBackend, ZfsStream
+from rift.commands import NoSuchDatasetError, Runner
+from rift.snapshots import Bookmark, Snapshot
+from rift.zfs import ZfsBackend, ZfsStream
 
 
 @define
@@ -310,7 +310,7 @@ def test_resume_token_cache():
 
 def test_stream_size():
     runner = TestRunner(
-        returns="send from source/A@nexo_2025-10-11_10:42:52_weekly to source/A@nexo_2025-10-11_12:40:19_weekly estimated size is 624B\ntotal estimated size is 624"
+        returns="send from source/A@rift_2025-10-11_10:42:52_weekly to source/A@rift_2025-10-11_12:40:19_weekly estimated size is 624B\ntotal estimated size is 624"
     )
     size = ZfsStream(("zfs", "send", "..."), runner).size()
     assert_that(size, equal_to(624))

@@ -115,7 +115,7 @@
 
               # Apply fixups for building an editable package of your workspace packages
               (final: prev: {
-                nexo = prev.nexo.overrideAttrs (old: {
+                rift = prev.rift.overrideAttrs (old: {
                   # It's a good idea to filter the sources going into an editable build
                   # so the editable package doesn't have to be rebuilt on every change.
                   src = lib.fileset.toSource {
@@ -123,7 +123,7 @@
                     fileset = lib.fileset.unions [
                       (old.src + "/pyproject.toml")
                       (old.src + "/README.md")
-                      (old.src + "/src/nexo/__init__.py")
+                      (old.src + "/src/rift/__init__.py")
                     ];
                   };
 
@@ -142,12 +142,12 @@
         {
           apps.default = {
             type = "app";
-            program = "${self.packages.${system}.default}/bin/nexo";
+            program = "${self.packages.${system}.default}/bin/rift";
           };
 
           packages = {
             default = python.pkgs.buildPythonApplication {
-              pname = "nexo";
+              pname = "rift";
               version = "0.01";
               pyproject = true;
               src = ./.;
@@ -160,15 +160,15 @@
                 structlog
               ];
             };
-            package = pythonSet.mkVirtualEnv "nexo-env" workspace.deps.default; # this code + deps
-            venv = editablePythonSet.mkVirtualEnv "nexo-venv" workspace.deps.all; # deps only
+            package = pythonSet.mkVirtualEnv "rift-env" workspace.deps.default; # this code + deps
+            venv = editablePythonSet.mkVirtualEnv "rift-venv" workspace.deps.all; # deps only
           };
 
           # # Pytest flake using uv2nix
           # checks =
           #   let
-          #     test-deps = editablePythonSet.mkVirtualEnv "nexo-test-env" { nexo = [ "test" ]; };
-          #     typing-deps = editablePythonSet.mkVirtualEnv "nexo-typing-env" { nexo = [ "typing" ]; };
+          #     test-deps = editablePythonSet.mkVirtualEnv "rift-test-env" { rift = [ "test" ]; };
+          #     typing-deps = editablePythonSet.mkVirtualEnv "rift-typing-env" { rift = [ "typing" ]; };
           #   in
           #   {
           #     pytest = pkgs.runCommand "pytest-check" { buildInputs = [ test-deps ]; } ''
@@ -222,7 +222,7 @@
             # This means that any changes done to your local files do not require a rebuild.
             uv2nix =
               let
-                venv = editablePythonSet.mkVirtualEnv "nexo-dev-env" workspace.deps.all;
+                venv = editablePythonSet.mkVirtualEnv "rift-dev-env" workspace.deps.all;
 
               in
               pkgs.mkShell {

@@ -107,7 +107,7 @@ wheels = [
 ]
 
 [[package]]
-name = "nexo"
+name = "rift"
 version = "1.0"
 source = { editable = "." }
 dependencies = [

@@ -1,5 +1,5 @@
 [project]
-name = "nexo"
+name = "rift"
 version = "1.0"
 readme = "README.md"
 authors = [{ name = "Markus Schneider", email = "mschneider@linkdot.org" }]
@@ -22,7 +22,7 @@ test = ["pytest>=8.3.4","precisely>=0.1.9", "coverage>=7.10.7"]
 lint = ["ruff>=0.9.3"]
 
 [project.scripts]
-nexo = "nexo.cli:main"
+rift = "rift.cli:main"
 
 [build-system]
 requires = ["setuptools"]
