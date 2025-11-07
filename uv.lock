@@ -107,7 +107,7 @@ wheels = [
 ]
 
 [[package]]
-name = "flux"
+name = "nexo"
 version = "1.0"
 source = { editable = "." }
 dependencies = [

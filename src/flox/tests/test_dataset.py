@@ -1,0 +1,405 @@
+import logging
+from functools import cache
+from typing import Iterable, Optional
+
+import pytest
+import structlog
+from attrs import Factory, define, frozen
+from multimethod import multimethod
+from precisely import assert_that, contains_exactly, equal_to, is_instance
+
+from nexo.datasets import Backend, Dataset, Stream, ancestor, prune, send, sync
+from nexo.snapshots import Bookmark, Snapshot
+
+structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING))
+
+
+@frozen
+class MemoryStream(Stream):
+    snapshot: Snapshot
+
+    def size(self) -> int:
+        return 0
+
+
+@frozen
+class ResumingInMemoryStream(MemoryStream):
+    token: str
+
+
+@frozen
+class IncrementalInMemoryStream(MemoryStream):
+    ancestor: Snapshot | Bookmark
+
+
+@frozen
+class FullInMemoryStream(MemoryStream):
+    pass
+
+
+@define
+class InMemoryBackend(Backend):
+    snapshots_data: list[Snapshot] = Factory(list)
+    bookmarks_data: list[Bookmark] = Factory(list)
+    resume_token_data: Optional[str] = None
+    received_as: dict[Snapshot, Stream] = Factory(dict)
+    _exists: bool = True
+
+    def snapshots(self) -> tuple[Snapshot, ...]:
+        return tuple(self.snapshots_data)
+
+    @cache
+    def bookmarks(self) -> tuple[Bookmark, ...]:
+        return tuple(self.bookmarks_data)
+
+    def snapshot(self, name: str) -> None:
+        def next_creation():
+            if len(self.snapshots_data) == 0:
+                return 1
+            return int(self.snapshots_data[-1].creation) + 1
+
+        snapshot = Snapshot(
+            fqn=self.path + "@" + name,
+            guid="uuid:" + self.path + "@" + name,
+            creation=str(next_creation()),
+        )
+        self.snapshots_data.append(snapshot)
+
+    def bookmark(self, snapshot_name: str) -> None:
+        snapshot = next(s for s in self.snapshots() if s.name == snapshot_name)
+        bookmark = Bookmark(snapshot.fqn.replace("@", "#"), snapshot.guid, snapshot.creation)
+        self.bookmarks_data.append(bookmark)
+
+    @multimethod
+    def send(self, token: str) -> Stream:
+        return ResumingInMemoryStream(self.snapshots_data[int(token)], token)
+
+    @multimethod
+    def send(self, snapshot: Snapshot, ancestor: Snapshot | Bookmark) -> Stream:
+        return IncrementalInMemoryStream(snapshot, ancestor)
+
+    @multimethod
+    def send(self, snapshot: Snapshot) -> Stream:
+        return FullInMemoryStream(snapshot)
+
+    def recv(self, stream: Stream, bwlimit: Optional[str], dry_run: bool) -> None:
+        assert isinstance(
+            stream,
+            (FullInMemoryStream, IncrementalInMemoryStream, ResumingInMemoryStream),
+        )
+        self.snapshots_data.append(stream.snapshot)
+        self.received_as[stream.snapshot] = stream
+
+    def resume_token(self) -> Optional[str]:
+        return self.resume_token_data
+
+    def exists(self) -> bool:
+        return self._exists
+
+    def destroy(self, snapshots: Iterable[str], dry_run: bool) -> None:
+        for s in self.snapshots_data:
+            if s.name in snapshots:
+                self.snapshots_data.remove(s)
+
+    def __hash__(self):
+        return hash(self.path)
+
+
+def test_path():
+    assert_that(Dataset(InMemoryBackend("source/A")).path, equal_to("source/A"))
+
+
+def test_fqn():
+    assert_that(Dataset(InMemoryBackend("source/A", remote=None)).fqn, equal_to("source/A"))
+
+
+def test_fqn_remote():
+    assert_that(
+        Dataset(InMemoryBackend("source/A", remote="user@host")).fqn,
+        equal_to("user@host:source/A"),
+    )
+
+
+def test_snapshot():
+    source = Dataset(InMemoryBackend("source/A"))
+    source.snapshot("s1")
+    assert_that(
+        source.snapshots(),
+        contains_exactly(Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")),
+    )
+    source.snapshot("s2")
+    assert_that(
+        source.snapshots(),
+        contains_exactly(
+            Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1"),
+            Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2"),
+        ),
+    )
+
+
+def test_bookmark():
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
+    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2]))
+    source.bookmark("s2")
+    assert_that(
+        source.bookmarks(),
+        equal_to((Bookmark(fqn="source/A#s2", guid="uuid:source/A@s2", creation="2"),)),
+    )
+
+
+def test_find():
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
+    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2]))
+    assert_that(source.find("s1"), equal_to(s1))
+    assert_that(source.find("s2"), equal_to(s2))
+    with pytest.raises(ValueError):
+        source.find("s3")
+
+
+def test_send_without_source():
+    source = Dataset(InMemoryBackend("source/A"))
+    target = Dataset(InMemoryBackend("target/backups/A"))
+
+    # try s1 from source to target without s1 being in source
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
+    with pytest.raises(FileNotFoundError):
+        send(s1, source, target, dry_run=False)
+
+
+def test_full_send():
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
+    source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1]))
+    target = Dataset(InMemoryBackend("target/backups/A"))
+
+    # send s1 from source to target
+    send(s1, source, target, dry_run=False)
+    assert_that(target.snapshots(), contains_exactly(*source.snapshots()))
+
+    # assert that s1 was a full send
+    assert isinstance(target.backend, InMemoryBackend)
+    assert_that(target.backend.received_as[s1], is_instance(FullInMemoryStream))
+
+
+def test_incremental_send():
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
+    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2]))
+    target = Dataset(InMemoryBackend("target/backups/A", snapshots_data=[s1]))
+
+    # send s2 from source to target
+    send(s2, source, target, dry_run=False)
+    assert_that(target.snapshots(), contains_exactly(*source.snapshots()))
+
+    # assert that s2 was an incremental send
+    assert isinstance(target.backend, InMemoryBackend)
+    assert_that(target.backend.received_as[s2], is_instance(IncrementalInMemoryStream))
+
+
+def test_resume_send():
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
+    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2]))
+    target = Dataset(InMemoryBackend("target/backups/A", snapshots_data=[s1], resume_token_data="1"))
+
+    # send s2 from source to target
+    send(s2, source, target, dry_run=False)
+    assert_that(target.snapshots(), contains_exactly(*source.snapshots()))
+
+    # assert that s2 was a resume send
+    assert isinstance(target.backend, InMemoryBackend)
+    assert_that(target.backend.received_as[s2], is_instance(ResumingInMemoryStream))
+
+
+def test_no_send():
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
+    source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1]))
+    target = Dataset(InMemoryBackend("target/backups/A", snapshots_data=[s1]))
+
+    # send s1 from source to target
+    send(s1, source, target, dry_run=False)
+    assert_that(target.snapshots(), contains_exactly(*source.snapshots()))
+
+    # assert that nothing was actually received
+    assert isinstance(target.backend, InMemoryBackend)
+    assert_that(target.backend.received_as, contains_exactly())
+
+
+def test_no_ancestor():
+    snapshot = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    source = Dataset(
+        InMemoryBackend(
+            "source/A",
+            snapshots_data=[
+                Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1"),
+                snapshot,
+            ],
+        )
+    )
+    target = Dataset(
+        InMemoryBackend(
+            "target/backups/A",
+            snapshots_data=[
+                Snapshot(fqn="target/backups/A@s3", guid="uuid:source/A@s3", creation=""),
+                Snapshot(fqn="target/backups/A@s4", guid="uuid:source/A@s4", creation=""),
+            ],
+        )
+    )
+
+    assert_that(ancestor(snapshot, source, target), equal_to(None))
+
+
+def test_ancestor():
+    base = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    snapshot = Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", creation="4")
+
+    source = Dataset(
+        InMemoryBackend(
+            "source/A",
+            snapshots_data=[
+                Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1"),  # older common
+                Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2"),  # ancestor / base
+                Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", creation="3"),  # missing on target
+                Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", creation="4"),  # snapshot
+                Snapshot(fqn="source/A@s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+            ],
+        )
+    )
+    target = Dataset(
+        InMemoryBackend(
+            "target/backups/A",
+            snapshots_data=[
+                Snapshot(fqn="target/backups/A@s1", guid="uuid:source/A@s1", creation="1"),  # older common
+                Snapshot(fqn="target/backups/A@s2", guid="uuid:source/A@s2", creation="2"),  # ancestor / base
+                Snapshot(fqn="target/backups/A@s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+            ],
+        )
+    )
+
+    assert_that(ancestor(snapshot, source, target), equal_to(base))
+
+
+def test_ancestor_bookmark():
+    base = Bookmark(fqn="source/A#s2", guid="uuid:source/A@s2", creation="2")
+    snapshot = Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", creation="4")
+
+    source = Dataset(
+        InMemoryBackend(
+            "source/A",
+            snapshots_data=[
+                Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1"),  # older common
+                # Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2"), # ancestor / base
+                Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", creation="3"),  # missing on target
+                Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", creation="4"),  # snapshot
+                Snapshot(fqn="source/A@s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+            ],
+            bookmarks_data=[
+                Bookmark(fqn="source/A#s1", guid="uuid:source/A@s1", creation="1"),  # older common
+                Bookmark(fqn="source/A#s2", guid="uuid:source/A@s2", creation="2"),  # ancestor / base
+                Bookmark(fqn="source/A#s3", guid="uuid:source/A@s3", creation="3"),  # missing on target
+                Bookmark(fqn="source/A#s4", guid="uuid:source/A@s4", creation="4"),  # snapshot
+                Bookmark(fqn="source/A#s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+            ],
+        )
+    )
+    target = Dataset(
+        InMemoryBackend(
+            "target/backups/A",
+            snapshots_data=[
+                Snapshot(fqn="target/backups/A@s1", guid="uuid:source/A@s1", creation="1"),  # older common
+                Snapshot(fqn="target/backups/A@s2", guid="uuid:source/A@s2", creation="2"),  # ancestor / base
+                Snapshot(fqn="target/backups/A@s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+            ],
+        )
+    )
+
+    assert_that(ancestor(snapshot, source, target), equal_to(base))
+
+
+def test_ancestor_snapshot_before_bookmark():
+    base = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    snapshot = Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", creation="4")
+
+    source = Dataset(
+        InMemoryBackend(
+            "source/A",
+            snapshots_data=[
+                Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1"),  # older common
+                Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2"),  # ancestor / base
+                Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", creation="3"),  # missing on target
+                Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", creation="4"),  # snapshot
+                Snapshot(fqn="source/A@s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+            ],
+            bookmarks_data=[
+                Bookmark(fqn="source/A#s1", guid="uuid:source/A@s1", creation="1"),  # older common
+                Bookmark(fqn="source/A#s2", guid="uuid:source/A@s2", creation="2"),  # ancestor / base
+                Bookmark(fqn="source/A#s3", guid="uuid:source/A@s3", creation="3"),  # missing on target
+                Bookmark(fqn="source/A#s4", guid="uuid:source/A@s4", creation="4"),  # snapshot
+                Bookmark(fqn="source/A#s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+            ],
+        )
+    )
+    target = Dataset(
+        InMemoryBackend(
+            "target/backups/A",
+            snapshots_data=[
+                Snapshot(fqn="target/backups/A@s1", guid="uuid:source/A@s1", creation="1"),  # older common
+                Snapshot(fqn="target/backups/A@s2", guid="uuid:source/A@s2", creation="2"),  # ancestor / base
+                Snapshot(fqn="target/backups/A@s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+            ],
+        )
+    )
+
+    assert_that(ancestor(snapshot, source, target), equal_to(base))
+
+
+def test_sync_initial():
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
+    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    s3 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", creation="3")
+    s4 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s4", creation="4")
+    source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2, s3, s4]))
+    target = Dataset(InMemoryBackend("target/backups/A", exists=False, snapshots_data=[]))
+
+    # sync newer from source to target
+    sync(source, target, dry_run=False)
+    assert_that(target.snapshots(), contains_exactly(s1, s2, s3, s4))
+
+
+def test_sync():
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
+    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    s3 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", creation="3")
+    s4 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s4", creation="4")
+    source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2, s3, s4]))
+    target = Dataset(InMemoryBackend("target/backups/A", snapshots_data=[s2]))
+
+    # sync newer from source to target
+    sync(source, target, dry_run=False)
+    assert_that(target.snapshots(), contains_exactly(s2, s3, s4))
+
+
+def test_sync_filtered():
+    s1 = Snapshot(fqn="source/A@nexo_s1", guid="uuid:source/A@nexo_s1", creation="1")
+    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    s3 = Snapshot(fqn="source/A@nexo_s3", guid="uuid:source/A@nexo_s3", creation="3")
+    s4 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s4", creation="4")
+    source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2, s3, s4]))
+    target = Dataset(InMemoryBackend("target/backups/A", snapshots_data=[]))
+
+    # sync newer from source to target
+    sync(source, target, regex="nexo_.*", dry_run=False)
+    assert_that(target.snapshots(), contains_exactly(s1, s3))
+
+
+def test_prune():
+    s1 = Snapshot(fqn="source/A@nexo_s1_weekly", guid="uuid:source/A@s1", creation="1")
+    s2 = Snapshot(fqn="source/A@nexo_s2_weekly", guid="uuid:source/A@s2", creation="2")
+    s3 = Snapshot(fqn="source/A@nexo_s3_daily", guid="uuid:source/A@s3", creation="3")
+    s4 = Snapshot(fqn="source/A@nexo_s4_monthly", guid="uuid:source/A@s4", creation="4")
+    source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2, s3, s4]))
+    policy = {"nexo_.*_daily": 5, "nexo_.*_weekly": 1, "nexo_.*_monthly": 0}
+    prune(source, policy, dry_run=False)
+
+    assert_that(source.snapshots(), contains_exactly(s2, s3))
