@@ -36,5 +36,5 @@ be sent to the target. The defautl filter is `"flux.*"`.
     flux snapshot --tag weekly src/data 
 
 ## Destroy old snapshots
-    flux prune --keep 24 hourly --keep 4 weekly --keep 0 frequently src/data
+    flux prune --keep 24 hourly --keep 4 flux_.*_weekly --keep 0 flux_.*_frequently src/data
 

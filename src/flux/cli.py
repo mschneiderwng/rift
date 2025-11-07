@@ -164,7 +164,9 @@ def send(source, target, bwlimit, dry_run, verbose):
 @click.command()
 @click.argument("source", type=DATASET_TYPE)
 @click.argument("target", type=DATASET_TYPE)
-@click.option("--filter", "-f", "regex", default="flux.*", help="Sync only snapshots which match regex.")
+@click.option(
+    "--filter", "-f", "regex", default="flux.*", help="Sync only snapshots which match regex (default: 'flux.*')."
+)
 @click.option("--bwlimit", help="Bandwidth limit (needs mbuffer).")
 @dry_run_option()
 @verbose_option()
@@ -184,10 +186,10 @@ def sync(source, target, regex, bwlimit, dry_run, verbose):
 
 @click.command()
 @click.argument("dataset", type=DATASET_TYPE)
-@click.option("--name", default="flux", help="Snapshot name.")
+@click.option("--name", default="flux", help="Snapshot name (default: 'flux').")
 @click.option("--tag", default=None, help="Snapshot tag, e.g. 'hourly'.")
-@click.option("--timestamp/--no-timestamp", default=True, help="Append timestamp to name.")
-@click.option("--bookmark/--no-bookmark", default=True, help="Also create bookmark of snapshot.")
+@click.option("--timestamp/--no-timestamp", default=True, help="Append timestamp to name (default: True).")
+@click.option("--bookmark/--no-bookmark", default=True, help="Also create bookmark of snapshot (default: True).")
 @verbose_option()
 def snapshot(dataset, name, tag, timestamp, bookmark, verbose):
     configure_logging(verbose)
@@ -210,9 +212,11 @@ def snapshot(dataset, name, tag, timestamp, bookmark, verbose):
 
 @click.command(name="list")
 @click.argument("dataset", type=DATASET_TYPE)
-@click.option("--filter", "-f", "regex", default="flux.*", help="Show only snapshots which match regex.")
-@click.option("--snapshots/--no-snapshots", default=True, help="List snapshots.")
-@click.option("--bookmarks/--no-bookmarks", default=True, help="List bookmarks.")
+@click.option(
+    "--filter", "-f", "regex", default="flux.*", help="Show only snapshots which match regex (default: 'flux.*')."
+)
+@click.option("--snapshots/--no-snapshots", default=True, help="List snapshots (default: True).")
+@click.option("--bookmarks/--no-bookmarks", default=False, help="List bookmarks (default: False).")
 @verbose_option()
 def list_snapshots(dataset, regex, snapshots, bookmarks, verbose):
     configure_logging(verbose)
@@ -256,55 +260,3 @@ main.add_command(sync)
 main.add_command(snapshot)
 main.add_command(list_snapshots)
 main.add_command(prune)
-
-if __name__ == "__main__":
-    snapshot(["mschneider@localhost:source/A", "--tag", "weekly", "-vv"], standalone_mode=False)
-    #
-    # list_snapshots(
-    #     ["mschneider@localhost:source/A", "--no-bookmarks", "-vv"],
-    #     standalone_mode=False,
-    # )
-    #
-    # list_snapshots(
-    #     ["target/backups/A", "--no-bookmarks", "-vv"],
-    #     standalone_mode=False,
-    # )
-
-    # list([
-    #     'mschneider@localhost:target/backups/A',
-    #     # '--no-bookmarks',
-    #     # '--no-snapshots',
-    #     '-vv'
-    # ], standalone_mode=False)
-
-    # send(["mschneider@localhost:source/A@flux_2025-10-09_18:13:34", "target/backups/A", "-vv"], standalone_mode=False)
-
-    sync(["mschneider@localhost:source/A", "target/backups/A", "-v"], standalone_mode=False)
-
-    # list_snapshots(
-    #     ["target/backups/A", "--no-bookmarks", "-vv"],
-    #     standalone_mode=False,
-    # )
-    #
-    # prune(
-    #     [
-    #         "mschneider@localhost:target/backups/A",
-    #         "-vv",
-    #         "--keep",
-    #         1,
-    #         ".*_hourly",
-    #         "--keep",
-    #         0,
-    #         ".*_weekly",
-    #         "--keep",
-    #         2,
-    #         ".*_nonexistent",
-    #         # "--dry-run"
-    #     ],
-    #     standalone_mode=False,
-    # )
-
-    # list_snapshots(
-    #     ["target/backups/A", "--no-bookmarks", "-vv"],
-    #     standalone_mode=False,
-    # )

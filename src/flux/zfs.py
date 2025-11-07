@@ -70,7 +70,7 @@ class ZfsBackend(Backend):
     def snapshot(self, name: str) -> None:
         """Create a snapshot with the given name"""
         log = structlog.get_logger()
-        log.debug(f"creating snapshot '{self.fqn}@{name}'")
+        log.info(f"creating snapshot '{self.fqn}@{name}'")
         self.cache_clear()  # invalidate caches
         args = ("zfs", "snapshot", f"{self.path}@{name}")
         self.runner.run(ssh(self.remote) + args)
@@ -78,7 +78,7 @@ class ZfsBackend(Backend):
     def bookmark(self, snapshot: str) -> None:
         """Create a bookmark from the given snapshot"""
         log = structlog.get_logger()
-        log.debug(f"creating bookmark '{self.fqn}#{snapshot}'")
+        log.info(f"creating bookmark '{self.fqn}#{snapshot}'")
         self.cache_clear()  # invalidate caches
         args = ("zfs", "bookmark", f"{self.path}@{snapshot}", f"{self.path}#{snapshot}")
         self.runner.run(ssh(self.remote) + args)
