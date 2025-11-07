@@ -28,7 +28,7 @@ newer than the newest snapshot on the target. This list is then iterated by `rif
 
 ### Flags
 The list of snapshots to be sent can be filtered by a regular expression. Only snapshots that match the regex will
-be sent to the target. The defautl filter is `"rift.*"`.
+be sent to the target. The default filter is `"rift.*"`.
 
     rift sync src/data user@remote:back/src/data --filter "rift.*"
 
