@@ -258,7 +258,6 @@ def prune(dataset: Dataset, policy: dict[str, int], *, dry_run: bool) -> None:
     # collect all snapshots to delete
     obsolete = []
     for regex, keep in policy.items():
-        log.info(f"flux prune '{dataset.fqn}': keep {keep} of snapshots matching regex '{regex}'")
         # get all snapshots matching regex
         p = re.compile(regex)
         snapshots = [s for s in dataset.snapshots() if p.match(s.name)]
@@ -267,6 +266,10 @@ def prune(dataset: Dataset, policy: dict[str, int], *, dry_run: bool) -> None:
         # delete everything that should not be retained
         destroy = [s.name for s in snapshots if s not in retain]
         obsolete += destroy
+
+        log.info(
+            f"flux prune '{dataset.fqn}' of '{regex}': {keep}/{len(retain)}/{len(snapshots)} destroy {len(destroy)}"
+        )
 
         # create debug output
         for s in snapshots:
