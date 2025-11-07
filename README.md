@@ -38,3 +38,154 @@ be sent to the target. The defautl filter is `"nexo.*"`.
 ## Destroy old snapshots
     nexo prune --keep 24 hourly --keep 4 nexo_.*_weekly --keep 0 nexo_.*_frequently src/data
 
+# Systemd
+I let `systemd` handle all the automation with the goal to give the least possible amount of permissions. `nix` is used a configuration language which create the following services and timers.
+
+## Daily Snapshot Timer
+`systemctl cat nexo-daily.timer`
+
+    [Unit]
+
+    [Timer]
+    OnCalendar=daily
+    Persistent=true
+    Unit=nexo-snapshot@daily.service
+
+
+    [Install]
+    WantedBy=timers.target
+
+## Daily Snapshot Service
+`systemctl cat nexo-snapshot@daily.service`
+
+    [Unit]
+    After=zfs.target
+    Description=nexo snapshot service
+
+    [Service]
+    Environment="LOCALE_ARCHIVE=/nix/store/lfnnsw0p9a1cbra5wf5f5zakffd7ify4-glibc-locales-2.40-66/lib/locale/locale-archive"
+    Environment="PATH=/nix/store/xs8scz9w9jp4hpqycx3n3bah5y07ymgj-coreutils-9.8/bin:/nix/store/qqvfnxa9jg71wp4hfg1l63r4m78iwvl9-findutils-4.10.0/bin:/nix/store/22r4s6lqhl43jkazn51f3c18qwk894g4-gnugrep-3.12/bin:/nix/store/zppkx0lkizglyqa9h>
+    Environment="TZDIR=/nix/store/c6lkjqkkc4cl4pffj4i3l22rv4ihhpb9-tzdata-2025b/share/zoneinfo"
+    BindPaths=/dev/zfs
+    CacheDirectory=nexo
+    CapabilityBoundingSet=
+    DeviceAllow=/dev/zfs
+    DevicePolicy=closed
+    DynamicUser=true
+    Environment=tag=%i
+    ExecStart=/nix/store/hh47v58qyqqcicshd3d9rax1ii3z9zbi-nexo-unstable-2015-11-06/bin/nexo snapshot -v --tag $tag rpool/user/home/me/dev
+    ExecStart=/nix/store/hh47v58qyqqcicshd3d9rax1ii3z9zbi-nexo-unstable-2015-11-06/bin/nexo snapshot -v --tag $tag rpool/user/home/me/docs
+    ExecStart=/nix/store/hh47v58qyqqcicshd3d9rax1ii3z9zbi-nexo-unstable-2015-11-06/bin/nexo snapshot -v --tag $tag rpool/user/home/me/etc
+    ExecStartPre=-+/run/booted-system/sw/bin/zfs allow nexo snapshot,bookmark rpool/user/home/me/dev
+    ExecStartPre=-+/run/booted-system/sw/bin/zfs allow nexo snapshot,bookmark rpool/user/home/me/docs
+    ExecStartPre=-+/run/booted-system/sw/bin/zfs allow nexo snapshot,bookmark rpool/user/home/me/etc
+    ExecStopPost=-+/run/booted-system/sw/bin/zfs unallow nexo snapshot,bookmark rpool/user/home/me/dev
+    ExecStopPost=-+/run/booted-system/sw/bin/zfs unallow nexo snapshot,bookmark rpool/user/home/me/docs
+    ExecStopPost=-+/run/booted-system/sw/bin/zfs unallow nexo snapshot,bookmark rpool/user/home/me/etc
+    Group=nexo
+    LockPersonality=true
+    MemoryDenyWriteExecute=true
+    NoNewPrivileges=true
+    PrivateDevices=true
+    PrivateMounts=true
+    PrivateNetwork=true
+    PrivateTmp=true
+    PrivateUsers=false
+    ProtectClock=true
+    ProtectControlGroups=true
+    ProtectHome=true
+    ProtectHostname=true
+    ProtectKernelLogs=true
+    ProtectKernelModules=true
+    ProtectKernelTunables=true
+    ProtectProc=invisible
+    ProtectSystem=strict
+    RestrictAddressFamilies=none
+    RestrictNamespaces=true
+    RestrictRealtime=true
+    RestrictSUIDSGID=true
+    RuntimeDirectory=nexo
+    SystemCallArchitectures=native
+    SystemCallFilter=
+    SystemCallFilter=~@reboot
+    SystemCallFilter=~@swap
+    SystemCallFilter=~@obsolete
+    SystemCallFilter=~@mount
+    SystemCallFilter=~@module
+    SystemCallFilter=~@debug
+    SystemCallFilter=~@cpu-emulation
+    SystemCallFilter=~@clock
+    SystemCallFilter=~@raw-io
+    SystemCallFilter=~@privileged
+    SystemCallFilter=~@resources
+    Type=oneshot
+    UMask=77
+    User=nexo
+
+
+## Prune Service
+`systemctl cat nexo-prune.service`
+
+    [Unit]
+    After=zfs.target
+    Description=nexo prune service
+
+    [Service]
+    Environment="LOCALE_ARCHIVE=/nix/store/lfnnsw0p9a1cbra5wf5f5zakffd7ify4-glibc-locales-2.40-66/lib/locale/locale-archive"
+    Environment="PATH=/nix/store/xs8scz9w9jp4hpqycx3n3bah5y07ymgj-coreutils-9.8/bin:/nix/store/qqvfnxa9jg71wp4hfg1l63r4m78iwvl9-findutils-4.10.0/bin:/nix/store/22r4s6lqhl43jkazn51f3c18qwk894g4-gnugrep-3.12/bin:/nix/store/zppkx0lkizglyqa9h>
+    Environment="TZDIR=/nix/store/c6lkjqkkc4cl4pffj4i3l22rv4ihhpb9-tzdata-2025b/share/zoneinfo"
+    BindPaths=/dev/zfs
+    CacheDirectory=nexo
+    CapabilityBoundingSet=
+    DeviceAllow=/dev/zfs
+    DevicePolicy=closed
+    DynamicUser=true
+    Environment=tag=%i
+    ExecStart=/nix/store/hh47v58qyqqcicshd3d9rax1ii3z9zbi-nexo-unstable-2015-11-06/bin/nexo prune -v --keep 30 nexo_.*_daily --keep 192 nexo_.*_frequently --keep 24 nexo_.*_hourly --keep 12 nexo_.*_monthly --keep 0 nexo_.*_tag --keep 0 nexo_.*_yearly rpool/user/home/me/dev
+    ExecStart=/nix/store/hh47v58qyqqcicshd3d9rax1ii3z9zbi-nexo-unstable-2015-11-06/bin/nexo prune -v --keep 30 nexo_.*_daily --keep 192 nexo_.*_frequently --keep 24 nexo_.*_hourly --keep 12 nexo_.*_monthly --keep 0 nexo_.*_tag --keep 0 nexo_.*_yearly rpool/user/home/me/docs
+    ExecStart=/nix/store/hh47v58qyqqcicshd3d9rax1ii3z9zbi-nexo-unstable-2015-11-06/bin/nexo prune -v --keep 30 nexo_.*_daily --keep 192 nexo_.*_frequently --keep 24 nexo_.*_hourly --keep 12 nexo_.*_monthly --keep 0 nexo_.*_tag --keep 0 nexo_.*_yearly rpool/user/home/me/etc
+    ExecStartPre=-+/run/booted-system/sw/bin/zfs allow nexo destroy,mount rpool/user/home/me/dev
+    ExecStartPre=-+/run/booted-system/sw/bin/zfs allow nexo destroy,mount rpool/user/home/me/docs
+    ExecStartPre=-+/run/booted-system/sw/bin/zfs allow nexo destroy,mount rpool/user/home/me/etc
+    ExecStopPost=-+/run/booted-system/sw/bin/zfs unallow nexo destroy,mount rpool/user/home/me/dev
+    ExecStopPost=-+/run/booted-system/sw/bin/zfs unallow nexo destroy,mount rpool/user/home/me/docs
+    ExecStopPost=-+/run/booted-system/sw/bin/zfs unallow nexo destroy,mount rpool/user/home/me/etc
+    Group=nexo
+    LockPersonality=true
+    MemoryDenyWriteExecute=true
+    NoNewPrivileges=true
+    PrivateDevices=true
+    PrivateMounts=true
+    PrivateNetwork=true
+    PrivateTmp=true
+    PrivateUsers=false
+    ProtectClock=true
+    ProtectControlGroups=true
+    ProtectHome=true
+    ProtectHostname=true
+    ProtectKernelLogs=true
+    ProtectKernelModules=true
+    ProtectKernelTunables=true
+    ProtectProc=invisible
+    ProtectSystem=strict
+    RestrictAddressFamilies=none
+    RestrictNamespaces=true
+    RestrictRealtime=true
+    RestrictSUIDSGID=true
+    RuntimeDirectory=nexo
+    SystemCallArchitectures=native
+    SystemCallFilter=
+    SystemCallFilter=~@reboot
+    SystemCallFilter=~@swap
+    SystemCallFilter=~@obsolete
+    SystemCallFilter=~@mount
+    SystemCallFilter=~@module
+    SystemCallFilter=~@debug
+    SystemCallFilter=~@cpu-emulation
+    SystemCallFilter=~@clock
+    SystemCallFilter=~@raw-io
+    SystemCallFilter=~@privileged
+    SystemCallFilter=~@resources
+    Type=oneshot
+    UMask=77
+    User=nexo
