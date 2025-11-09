@@ -52,7 +52,7 @@ class ZfsBackend(Backend):
         """
         log = structlog.get_logger()
         log.debug(f"retrieving snapshots for '{self.fqn}'")
-        args = split(f"zfs list -pHt snapshot -o name,guid,creation {self.path}")
+        args = split(f"zfs list -pHt snapshot -o name,guid,createtxg {self.path}")
         result = self.runner.run(ssh(self.remote) + tuple(args))
         return () if len(result) == 0 else tuple(map(Snapshot.parse, result.split("\n")))
 
@@ -63,7 +63,7 @@ class ZfsBackend(Backend):
         """
         log = structlog.get_logger()
         log.debug(f"retrieving bookmarks for '{self.fqn}'")
-        args = split(f"zfs list -pHt bookmark -o name,guid,creation {self.path}")
+        args = split(f"zfs list -pHt bookmark -o name,guid,createtxg {self.path}")
         result = self.runner.run(ssh(self.remote) + tuple(args))
         return () if len(result) == 0 else tuple(map(Bookmark.parse, result.split("\n")))
 

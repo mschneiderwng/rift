@@ -7,13 +7,12 @@ type guid = str
 class Snapshot:
     fqn: str
     guid: str
-    creation: str
-    # createtxg: int
+    createtxg: int
 
     @staticmethod
     def parse(line: str) -> "Snapshot":
         parts = line.split()
-        return Snapshot(parts[0], parts[1], parts[2])
+        return Snapshot(parts[0], parts[1], int(parts[2]))
 
     @property
     def name(self):
@@ -24,13 +23,12 @@ class Snapshot:
 class Bookmark:
     fqn: str
     guid: str
-    creation: str
-    # createtxg: int
+    createtxg: int
 
     @staticmethod
     def parse(line: str) -> "Bookmark":
         parts = line.split()
-        return Bookmark(parts[0], parts[1], parts[2])
+        return Bookmark(parts[0], parts[1], int(parts[2]))
 
     @property
     def name(self):

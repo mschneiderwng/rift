@@ -53,21 +53,21 @@ class InMemoryBackend(Backend):
         return tuple(self.bookmarks_data)
 
     def snapshot(self, name: str) -> None:
-        def next_creation():
+        def next_createtxg():
             if len(self.snapshots_data) == 0:
                 return 1
-            return int(self.snapshots_data[-1].creation) + 1
+            return int(self.snapshots_data[-1].createtxg) + 1
 
         snapshot = Snapshot(
             fqn=self.path + "@" + name,
             guid="uuid:" + self.path + "@" + name,
-            creation=str(next_creation()),
+            createtxg=next_createtxg(),
         )
         self.snapshots_data.append(snapshot)
 
     def bookmark(self, snapshot_name: str) -> None:
         snapshot = next(s for s in self.snapshots() if s.name == snapshot_name)
-        bookmark = Bookmark(snapshot.fqn.replace("@", "#"), snapshot.guid, snapshot.creation)
+        bookmark = Bookmark(snapshot.fqn.replace("@", "#"), snapshot.guid, snapshot.createtxg)
         self.bookmarks_data.append(bookmark)
 
     @multimethod
@@ -125,32 +125,32 @@ def test_snapshot():
     source.snapshot("s1")
     assert_that(
         source.snapshots(),
-        contains_exactly(Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")),
+        contains_exactly(Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)),
     )
     source.snapshot("s2")
     assert_that(
         source.snapshots(),
         contains_exactly(
-            Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1"),
-            Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2"),
+            Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1),
+            Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2),
         ),
     )
 
 
 def test_bookmark():
-    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
-    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
+    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
     source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2]))
     source.bookmark("s2")
     assert_that(
         source.bookmarks(),
-        equal_to((Bookmark(fqn="source/A#s2", guid="uuid:source/A@s2", creation="2"),)),
+        equal_to((Bookmark(fqn="source/A#s2", guid="uuid:source/A@s2", createtxg=2),)),
     )
 
 
 def test_find():
-    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
-    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
+    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
     source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2]))
     assert_that(source.find("s1"), equal_to(s1))
     assert_that(source.find("s2"), equal_to(s2))
@@ -163,13 +163,13 @@ def test_send_without_source():
     target = Dataset(InMemoryBackend("target/backups/A"))
 
     # try s1 from source to target without s1 being in source
-    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
     with pytest.raises(FileNotFoundError):
         send(s1, source, target, dry_run=False)
 
 
 def test_full_send():
-    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
     source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1]))
     target = Dataset(InMemoryBackend("target/backups/A"))
 
@@ -183,14 +183,15 @@ def test_full_send():
 
 
 def test_incremental_send():
-    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
-    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=5)
+    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=6)
+    t1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
     source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2]))
-    target = Dataset(InMemoryBackend("target/backups/A", snapshots_data=[s1]))
+    target = Dataset(InMemoryBackend("target/backups/A", snapshots_data=[t1]))
 
     # send s2 from source to target
     send(s2, source, target, dry_run=False)
-    assert_that(target.snapshots(), contains_exactly(*source.snapshots()))
+    assert_that(target.snapshots(), contains_exactly(t1, s2))
 
     # assert that s2 was an incremental send
     assert isinstance(target.backend, InMemoryBackend)
@@ -198,8 +199,8 @@ def test_incremental_send():
 
 
 def test_resume_send():
-    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
-    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
+    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
     source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2]))
     target = Dataset(InMemoryBackend("target/backups/A", snapshots_data=[s1], resume_token_data="1"))
 
@@ -213,7 +214,7 @@ def test_resume_send():
 
 
 def test_no_send():
-    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
     source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1]))
     target = Dataset(InMemoryBackend("target/backups/A", snapshots_data=[s1]))
 
@@ -227,12 +228,12 @@ def test_no_send():
 
 
 def test_no_ancestor():
-    snapshot = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    snapshot = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
     source = Dataset(
         InMemoryBackend(
             "source/A",
             snapshots_data=[
-                Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1"),
+                Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1),
                 snapshot,
             ],
         )
@@ -241,8 +242,8 @@ def test_no_ancestor():
         InMemoryBackend(
             "target/backups/A",
             snapshots_data=[
-                Snapshot(fqn="target/backups/A@s3", guid="uuid:source/A@s3", creation=""),
-                Snapshot(fqn="target/backups/A@s4", guid="uuid:source/A@s4", creation=""),
+                Snapshot(fqn="target/backups/A@s3", guid="uuid:source/A@s3", createtxg=0),
+                Snapshot(fqn="target/backups/A@s4", guid="uuid:source/A@s4", createtxg=0),
             ],
         )
     )
@@ -251,18 +252,18 @@ def test_no_ancestor():
 
 
 def test_ancestor():
-    base = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
-    snapshot = Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", creation="4")
+    base = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
+    snapshot = Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", createtxg=4)
 
     source = Dataset(
         InMemoryBackend(
             "source/A",
             snapshots_data=[
-                Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1"),  # older common
-                Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2"),  # ancestor / base
-                Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", creation="3"),  # missing on target
-                Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", creation="4"),  # snapshot
-                Snapshot(fqn="source/A@s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+                Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1),  # older common
+                Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2),  # ancestor / base
+                Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", createtxg=3),  # missing on target
+                Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", createtxg=4),  # snapshot
+                Snapshot(fqn="source/A@s5", guid="uuid:source/A@s5", createtxg=5),  # newer common
             ],
         )
     )
@@ -270,9 +271,9 @@ def test_ancestor():
         InMemoryBackend(
             "target/backups/A",
             snapshots_data=[
-                Snapshot(fqn="target/backups/A@s1", guid="uuid:source/A@s1", creation="1"),  # older common
-                Snapshot(fqn="target/backups/A@s2", guid="uuid:source/A@s2", creation="2"),  # ancestor / base
-                Snapshot(fqn="target/backups/A@s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+                Snapshot(fqn="target/backups/A@s1", guid="uuid:source/A@s1", createtxg=1),  # older common
+                Snapshot(fqn="target/backups/A@s2", guid="uuid:source/A@s2", createtxg=2),  # ancestor / base
+                Snapshot(fqn="target/backups/A@s5", guid="uuid:source/A@s5", createtxg=5),  # newer common
             ],
         )
     )
@@ -281,25 +282,25 @@ def test_ancestor():
 
 
 def test_ancestor_bookmark():
-    base = Bookmark(fqn="source/A#s2", guid="uuid:source/A@s2", creation="2")
-    snapshot = Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", creation="4")
+    base = Bookmark(fqn="source/A#s2", guid="uuid:source/A@s2", createtxg=2)
+    snapshot = Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", createtxg=4)
 
     source = Dataset(
         InMemoryBackend(
             "source/A",
             snapshots_data=[
-                Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1"),  # older common
-                # Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2"), # ancestor / base
-                Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", creation="3"),  # missing on target
-                Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", creation="4"),  # snapshot
-                Snapshot(fqn="source/A@s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+                Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1),  # older common
+                # Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2), # ancestor / base
+                Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", createtxg=3),  # missing on target
+                Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", createtxg=4),  # snapshot
+                Snapshot(fqn="source/A@s5", guid="uuid:source/A@s5", createtxg=5),  # newer common
             ],
             bookmarks_data=[
-                Bookmark(fqn="source/A#s1", guid="uuid:source/A@s1", creation="1"),  # older common
-                Bookmark(fqn="source/A#s2", guid="uuid:source/A@s2", creation="2"),  # ancestor / base
-                Bookmark(fqn="source/A#s3", guid="uuid:source/A@s3", creation="3"),  # missing on target
-                Bookmark(fqn="source/A#s4", guid="uuid:source/A@s4", creation="4"),  # snapshot
-                Bookmark(fqn="source/A#s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+                Bookmark(fqn="source/A#s1", guid="uuid:source/A@s1", createtxg=1),  # older common
+                Bookmark(fqn="source/A#s2", guid="uuid:source/A@s2", createtxg=2),  # ancestor / base
+                Bookmark(fqn="source/A#s3", guid="uuid:source/A@s3", createtxg=3),  # missing on target
+                Bookmark(fqn="source/A#s4", guid="uuid:source/A@s4", createtxg=4),  # snapshot
+                Bookmark(fqn="source/A#s5", guid="uuid:source/A@s5", createtxg=5),  # newer common
             ],
         )
     )
@@ -307,9 +308,9 @@ def test_ancestor_bookmark():
         InMemoryBackend(
             "target/backups/A",
             snapshots_data=[
-                Snapshot(fqn="target/backups/A@s1", guid="uuid:source/A@s1", creation="1"),  # older common
-                Snapshot(fqn="target/backups/A@s2", guid="uuid:source/A@s2", creation="2"),  # ancestor / base
-                Snapshot(fqn="target/backups/A@s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+                Snapshot(fqn="target/backups/A@s1", guid="uuid:source/A@s1", createtxg=1),  # older common
+                Snapshot(fqn="target/backups/A@s2", guid="uuid:source/A@s2", createtxg=2),  # ancestor / base
+                Snapshot(fqn="target/backups/A@s5", guid="uuid:source/A@s5", createtxg=5),  # newer common
             ],
         )
     )
@@ -318,25 +319,25 @@ def test_ancestor_bookmark():
 
 
 def test_ancestor_snapshot_before_bookmark():
-    base = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
-    snapshot = Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", creation="4")
+    base = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
+    snapshot = Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", createtxg=4)
 
     source = Dataset(
         InMemoryBackend(
             "source/A",
             snapshots_data=[
-                Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1"),  # older common
-                Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2"),  # ancestor / base
-                Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", creation="3"),  # missing on target
-                Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", creation="4"),  # snapshot
-                Snapshot(fqn="source/A@s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+                Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1),  # older common
+                Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2),  # ancestor / base
+                Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", createtxg=3),  # missing on target
+                Snapshot(fqn="source/A@s4", guid="uuid:source/A@s4", createtxg=4),  # snapshot
+                Snapshot(fqn="source/A@s5", guid="uuid:source/A@s5", createtxg=5),  # newer common
             ],
             bookmarks_data=[
-                Bookmark(fqn="source/A#s1", guid="uuid:source/A@s1", creation="1"),  # older common
-                Bookmark(fqn="source/A#s2", guid="uuid:source/A@s2", creation="2"),  # ancestor / base
-                Bookmark(fqn="source/A#s3", guid="uuid:source/A@s3", creation="3"),  # missing on target
-                Bookmark(fqn="source/A#s4", guid="uuid:source/A@s4", creation="4"),  # snapshot
-                Bookmark(fqn="source/A#s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+                Bookmark(fqn="source/A#s1", guid="uuid:source/A@s1", createtxg=1),  # older common
+                Bookmark(fqn="source/A#s2", guid="uuid:source/A@s2", createtxg=2),  # ancestor / base
+                Bookmark(fqn="source/A#s3", guid="uuid:source/A@s3", createtxg=3),  # missing on target
+                Bookmark(fqn="source/A#s4", guid="uuid:source/A@s4", createtxg=4),  # snapshot
+                Bookmark(fqn="source/A#s5", guid="uuid:source/A@s5", createtxg=5),  # newer common
             ],
         )
     )
@@ -344,9 +345,9 @@ def test_ancestor_snapshot_before_bookmark():
         InMemoryBackend(
             "target/backups/A",
             snapshots_data=[
-                Snapshot(fqn="target/backups/A@s1", guid="uuid:source/A@s1", creation="1"),  # older common
-                Snapshot(fqn="target/backups/A@s2", guid="uuid:source/A@s2", creation="2"),  # ancestor / base
-                Snapshot(fqn="target/backups/A@s5", guid="uuid:source/A@s5", creation="5"),  # newer common
+                Snapshot(fqn="target/backups/A@s1", guid="uuid:source/A@s1", createtxg=1),  # older common
+                Snapshot(fqn="target/backups/A@s2", guid="uuid:source/A@s2", createtxg=2),  # ancestor / base
+                Snapshot(fqn="target/backups/A@s5", guid="uuid:source/A@s5", createtxg=5),  # newer common
             ],
         )
     )
@@ -355,10 +356,10 @@ def test_ancestor_snapshot_before_bookmark():
 
 
 def test_sync_initial():
-    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
-    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
-    s3 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", creation="3")
-    s4 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s4", creation="4")
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
+    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
+    s3 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", createtxg=3)
+    s4 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s4", createtxg=4)
     source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2, s3, s4]))
     target = Dataset(InMemoryBackend("target/backups/A", exists=False, snapshots_data=[]))
 
@@ -368,10 +369,10 @@ def test_sync_initial():
 
 
 def test_sync():
-    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
-    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
-    s3 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", creation="3")
-    s4 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s4", creation="4")
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
+    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
+    s3 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", createtxg=3)
+    s4 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s4", createtxg=4)
     source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2, s3, s4]))
     target = Dataset(InMemoryBackend("target/backups/A", snapshots_data=[s2]))
 
@@ -381,10 +382,10 @@ def test_sync():
 
 
 def test_sync_filtered():
-    s1 = Snapshot(fqn="source/A@rift_s1", guid="uuid:source/A@rift_s1", creation="1")
-    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
-    s3 = Snapshot(fqn="source/A@rift_s3", guid="uuid:source/A@rift_s3", creation="3")
-    s4 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s4", creation="4")
+    s1 = Snapshot(fqn="source/A@rift_s1", guid="uuid:source/A@rift_s1", createtxg=1)
+    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
+    s3 = Snapshot(fqn="source/A@rift_s3", guid="uuid:source/A@rift_s3", createtxg=3)
+    s4 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s4", createtxg=4)
     source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2, s3, s4]))
     target = Dataset(InMemoryBackend("target/backups/A", snapshots_data=[]))
 
@@ -394,10 +395,10 @@ def test_sync_filtered():
 
 
 def test_prune():
-    s1 = Snapshot(fqn="source/A@rift_s1_weekly", guid="uuid:source/A@s1", creation="1")
-    s2 = Snapshot(fqn="source/A@rift_s2_weekly", guid="uuid:source/A@s2", creation="2")
-    s3 = Snapshot(fqn="source/A@rift_s3_daily", guid="uuid:source/A@s3", creation="3")
-    s4 = Snapshot(fqn="source/A@rift_s4_monthly", guid="uuid:source/A@s4", creation="4")
+    s1 = Snapshot(fqn="source/A@rift_s1_weekly", guid="uuid:source/A@s1", createtxg=1)
+    s2 = Snapshot(fqn="source/A@rift_s2_weekly", guid="uuid:source/A@s2", createtxg=2)
+    s3 = Snapshot(fqn="source/A@rift_s3_daily", guid="uuid:source/A@s3", createtxg=3)
+    s4 = Snapshot(fqn="source/A@rift_s4_monthly", guid="uuid:source/A@s4", createtxg=4)
     source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2, s3, s4]))
     policy = {"rift_.*_daily": 5, "rift_.*_weekly": 1, "rift_.*_monthly": 0}
     prune(source, policy, dry_run=False)

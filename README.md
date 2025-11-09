@@ -39,7 +39,12 @@ be sent to the target. The default filter is `"rift.*"`.
     rift prune --keep 24 hourly --keep 4 rift_.*_weekly --keep 0 rift_.*_frequently src/data
 
 # Systemd
-I let `systemd` handle all the automation with the goal to give the least possible amount of permissions. `nix` is used a configuration language which create the following services and timers.
+I let `systemd` handle all the automation with the goal to give the least possible amount of permissions. 
+- One service that creates snapshots (more precisely a service template which runs hourly, daily, ...).
+- One service that purges snapshots.
+- One service that sends snapthosts to a remote.
+
+`nix` is used a configuration language which creates the services and timers. An example for the created units can be seen in the following.
 
 ## Daily Snapshot Timer
 `systemctl cat rift-daily.timer`

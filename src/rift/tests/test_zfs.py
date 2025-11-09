@@ -96,7 +96,7 @@ def test_snapshots():
                     "-pHt",
                     "snapshot",
                     "-o",
-                    "name,guid,creation",
+                    "name,guid,createtxg",
                     "source/A",
                 )
             ]
@@ -119,7 +119,7 @@ def test_snapshots_cache():
                     "-pHt",
                     "snapshot",
                     "-o",
-                    "name,guid,creation",
+                    "name,guid,createtxg",
                     "source/A",
                 )
             ]
@@ -144,7 +144,7 @@ def test_snapshots_remote():
                     "-pHt",
                     "snapshot",
                     "-o",
-                    "name,guid,creation",
+                    "name,guid,createtxg",
                     "source/A",
                 )
             ]
@@ -166,7 +166,7 @@ def test_bookmarks():
                     "-pHt",
                     "bookmark",
                     "-o",
-                    "name,guid,creation",
+                    "name,guid,createtxg",
                     "source/A",
                 )
             ]
@@ -189,7 +189,7 @@ def test_bookmarks_cache():
                     "-pHt",
                     "bookmark",
                     "-o",
-                    "name,guid,creation",
+                    "name,guid,createtxg",
                     "source/A",
                 )
             ]
@@ -214,7 +214,7 @@ def test_bookmarks_remote():
                     "-pHt",
                     "bookmark",
                     "-o",
-                    "name,guid,creation",
+                    "name,guid,createtxg",
                     "source/A",
                 )
             ]
@@ -232,8 +232,8 @@ def test_send_resume():
 def test_send_incremental_from_bookmark():
     runner = TestRunner()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    anchor = Bookmark(fqn="source/A#s1", guid="uuid:source/A@s1", creation="")
-    snapshot = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    anchor = Bookmark(fqn="source/A#s1", guid="uuid:source/A@s1", createtxg=1)
+    snapshot = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
     stream = dataset.send(snapshot, anchor)
     assert_that(
         stream,
@@ -244,8 +244,8 @@ def test_send_incremental_from_bookmark():
 def test_send_incremental_from_snapshot():
     runner = TestRunner()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    anchor = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
-    snapshot = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", creation="2")
+    anchor = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
+    snapshot = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
     stream = dataset.send(snapshot, anchor)
     assert_that(
         stream,
@@ -256,7 +256,7 @@ def test_send_incremental_from_snapshot():
 def test_send_full():
     runner = TestRunner()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    snapshot = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", creation="1")
+    snapshot = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
     stream = dataset.send(snapshot)
     assert_that(stream, equal_to(ZfsStream(("zfs", "send", "-w", "source/A@s1"), runner)))
 

@@ -102,12 +102,12 @@ class Dataset:
     def snapshots(self) -> tuple[Snapshot, ...]:
         """List all snapshots of this dataset"""
         snapshots = snapshots if (snapshots := self.backend.snapshots()) is not None else ()
-        return tuple(sorted(snapshots, key=attrgetter("creation")))
+        return tuple(sorted(snapshots, key=attrgetter("createtxg")))
 
     def bookmarks(self) -> tuple[Bookmark, ...]:
         """List all snapshots of this dataset"""
         bookmarks = bookmarks if (bookmarks := self.backend.bookmarks()) is not None else ()
-        return tuple(sorted(bookmarks, key=attrgetter("creation")))
+        return tuple(sorted(bookmarks, key=attrgetter("createtxg")))
 
     def find(self, name: str) -> Snapshot:
         """Find snapshot with given name"""
@@ -163,12 +163,12 @@ def ancestor(snapshot: Snapshot, source: Dataset, target: Dataset) -> Optional[S
     # on the source side, it can be a snapshot or a bookmark
     # on the target side we need a snapshot
 
-    # only snapshots/bookmarks which are older than snapshot.creation
+    # only snapshots/bookmarks which are older than snapshot.createtxg
     candidates = filter(
-        lambda s: s.creation < snapshot.creation,
+        lambda s: s.createtxg < snapshot.createtxg,
         source.snapshots() + source.bookmarks(),
     )
-    candidates = sorted(candidates, key=lambda s: (s.creation, isinstance(s, Snapshot)))
+    candidates = sorted(candidates, key=lambda s: (s.createtxg, isinstance(s, Snapshot)))
 
     target_guids = {snap.guid: snap for snap in target.snapshots()}
     for snapshot in reversed(candidates):
@@ -239,11 +239,12 @@ def sync(
         missing = [s for s in source.snapshots() if s.guid not in map(attrgetter("guid"), target.snapshots())]
 
         # get latest snapshot from target
-        latest = target.snapshots()[-1]
-        log.debug(f"latest snapshots on target is: {latest.fqn}, guid={latest.guid}, creation={latest.creation}")
+        latest_guid = target.snapshots()[-1].guid
+        latest = next(s for s in source.snapshots() if s.guid == latest_guid)
+        log.debug(f"latest snapshots on target is: {latest.fqn}, guid={latest.guid}, createtxg={latest.createtxg}")
 
         # sync only newer snapshots
-        to_sync = [s for s in missing if s.creation > latest.creation]
+        to_sync = [s for s in missing if s.createtxg > latest.createtxg]
 
     # only sync snapshots which match regex
     p = re.compile(regex)
@@ -253,6 +254,8 @@ def sync(
     for s in source.snapshots():
         if s in to_sync:
             log.debug(f"[to be sync    ] {s.name}")
+        elif not p.match(s.name):
+            log.debug(f"[filtered      ] {s.name}")
         elif s in missing:
             log.debug(f"[too old       ] {s.name}")
         elif not p.match(s.name):
