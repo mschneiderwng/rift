@@ -5,7 +5,7 @@ from precisely import assert_that, equal_to
 
 from rift.commands import NoSuchDatasetError, Runner
 from rift.snapshots import Bookmark, Snapshot
-from rift.zfs import ZfsBackend, ZfsStream
+from rift.zfs import Remote, ZfsBackend, ZfsStream
 
 
 @define
@@ -45,11 +45,40 @@ def test_snapshot():
 
 def test_snapshot_remote():
     runner = TestRunner()
-    dataset = ZfsBackend(path="source/A", remote="user@host", runner=runner)
+    dataset = ZfsBackend(path="source/A", remote=Remote("user@host"), runner=runner)
     dataset.snapshot("s2")
     assert_that(
         runner.recorded,
         equal_to([("ssh", "user@host", "--", "zfs", "snapshot", "source/A@s2")]),
+    )
+
+
+def test_snapshot_remote_options():
+    runner = TestRunner()
+    dataset = ZfsBackend(
+        path="source/A",
+        remote=Remote("user@host", options=("ServerAliveInterval=60", "Compression=yes")),
+        runner=runner,
+    )
+    dataset.snapshot("s2")
+    assert_that(
+        runner.recorded,
+        equal_to(
+            [
+                (
+                    "ssh",
+                    "user@host",
+                    "-o",
+                    "ServerAliveInterval=60",
+                    "-o",
+                    "Compression=yes",
+                    "--",
+                    "zfs",
+                    "snapshot",
+                    "source/A@s2",
+                )
+            ]
+        ),
     )
 
 
@@ -62,7 +91,7 @@ def test_bookmark():
 
 def test_bookmark_remote():
     runner = TestRunner()
-    dataset = ZfsBackend(path="source/A", remote="user@host", runner=runner)
+    dataset = ZfsBackend(path="source/A", remote=Remote("user@host"), runner=runner)
     dataset.bookmark("s2")
     assert_that(
         runner.recorded,
@@ -129,7 +158,7 @@ def test_snapshots_cache():
 
 def test_snapshots_remote():
     runner = TestRunner()
-    dataset = ZfsBackend(path="source/A", remote="user@host", runner=runner)
+    dataset = ZfsBackend(path="source/A", remote=Remote("user@host"), runner=runner)
     dataset.snapshots()
     assert_that(
         runner.recorded,
@@ -199,7 +228,7 @@ def test_bookmarks_cache():
 
 def test_bookmarks_remote():
     runner = TestRunner()
-    dataset = ZfsBackend(path="source/A", remote="user@host", runner=runner)
+    dataset = ZfsBackend(path="source/A", remote=Remote("user@host"), runner=runner)
     dataset.bookmarks()
     assert_that(
         runner.recorded,

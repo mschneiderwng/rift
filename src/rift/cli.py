@@ -12,7 +12,7 @@ import structlog
 
 import rift.datasets
 from rift.commands import SystemRunner
-from rift.datasets import Dataset
+from rift.datasets import Dataset, Remote
 from rift.snapshots import Bookmark, Snapshot
 from rift.zfs import ZfsBackend
 
@@ -172,17 +172,25 @@ def send(source, target, bwlimit, dry_run, verbose):
     help="Sync only snapshots which match regex (default: 'rift.*').",
 )
 @click.option("--bwlimit", help="Bandwidth limit (needs mbuffer).")
+@click.option(
+    "--source-ssh-options", "-s", multiple=True, help='Ssh options like -o "Compression=yes" for source. Can be used multiple times.'
+)
+@click.option(
+    "--target-ssh-options", "-t", multiple=True, help='Ssh options like -o "Compression=yes" for target. Can be used multiple times.'
+)
 @dry_run_option()
 @verbose_option()
-def sync(source, target, regex, bwlimit, dry_run, verbose):
+def sync(source, target, regex, bwlimit, source_ssh_options, target_ssh_options, dry_run, verbose):
     configure_logging(verbose)
     with error_handler():
         # parse source
-        remote, path = source
+        host, path = source
+        remote = None if host is None else Remote(host, source_ssh_options)
         source = Dataset(ZfsBackend(path=path, remote=remote, runner=SystemRunner()))
 
         # parse target
-        remote, path = target
+        host, path = target
+        remote = None if host is None else Remote(host, target_ssh_options)
         target = Dataset(ZfsBackend(path=path, remote=remote, runner=SystemRunner()))
 
         rift.datasets.sync(source, target, regex=regex, bwlimit=bwlimit, dry_run=dry_run)

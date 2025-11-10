@@ -8,14 +8,14 @@ from attrs import field, frozen
 from multimethod import multimethod
 
 from rift.commands import NoSuchDatasetError, Runner
-from rift.datasets import Backend, Stream
+from rift.datasets import Backend, Remote, Stream
 from rift.snapshots import Bookmark, Snapshot
 
 
-def ssh(remote: Optional[str]) -> tuple[str, ...]:
+def ssh(remote: Optional[Remote]) -> tuple[str, ...]:
     if remote is None:
         return ()
-    return "ssh", remote, "--"
+    return ("ssh", remote.host) + sum((("-o", o) for o in remote.options), ()) + ("--",)
 
 
 @frozen

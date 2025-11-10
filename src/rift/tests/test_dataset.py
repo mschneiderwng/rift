@@ -8,7 +8,7 @@ from attrs import Factory, define, frozen
 from multimethod import multimethod
 from precisely import assert_that, contains_exactly, equal_to, is_instance
 
-from rift.datasets import Backend, Dataset, Stream, ancestor, prune, send, sync
+from rift.datasets import Backend, Dataset, Remote, Stream, ancestor, prune, send, sync
 from rift.snapshots import Bookmark, Snapshot
 
 structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING))
@@ -115,7 +115,7 @@ def test_fqn():
 
 def test_fqn_remote():
     assert_that(
-        Dataset(InMemoryBackend("source/A", remote="user@host")).fqn,
+        Dataset(InMemoryBackend("source/A", remote=Remote("user@host"))).fqn,
         equal_to("user@host:source/A"),
     )
 

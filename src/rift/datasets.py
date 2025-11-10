@@ -29,14 +29,20 @@ class Stream:
         raise NotImplementedError
 
 
+@frozen
+class Remote:
+    host: str
+    options: tuple[str, ...] = ()
+
+
 @define
 class Backend:
     path: str
-    remote: Optional[str] = None
+    remote: Optional[Remote] = None
 
     @property
     def fqn(self):
-        return f"{self.remote}:{self.path}" if self.remote is not None else self.path
+        return f"{self.remote.host}:{self.path}" if self.remote is not None else self.path
 
     def snapshots(self) -> tuple[Snapshot, ...]:
         """List all snapshots of this dataset"""
