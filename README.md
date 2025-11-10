@@ -30,7 +30,7 @@ newer than the newest snapshot on the target. This list is then iterated by `rif
 The list of snapshots to be sent can be filtered by a regular expression. Only snapshots that match the regex will
 be sent to the target. The default filter is `"rift.*"`.
 
-    rift sync src/data user@remote:back/src/data --filter "rift.*"
+    rift sync src/data user@remote:back/src/data --filter "rift_.*_.*(?<!frequently)$"
 
 ## Create snapshot
     rift snapshot --tag weekly src/data 
