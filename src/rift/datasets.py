@@ -199,28 +199,28 @@ def send(
 
     if not target.exists():
         stream = source.send(snapshot)
-        log.info(f"rift send (full) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{source.fqn}'")
+        log.info(f"rift send (full) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
         return stream.to(target, bwlimit=bwlimit, dry_run=dry_run)
 
     if snapshot.guid in map(attrgetter("guid"), target.snapshots()):
-        log.info(f"rift send '{snapshot.fqn}' to '{source.fqn}' skipped since snapshot already on target")
+        log.info(f"rift send '{snapshot.fqn}' to '{target.fqn}' skipped since snapshot already on target")
         return None
 
     elif (token := target.resume_token()) is not None:
         stream = source.send(token)
-        log.info(f"rift send (resume) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{source.fqn}'")
+        log.info(f"rift send (resume) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
         log.debug(f"resume send with token='{token}' [{sizeof_fmt(stream.size())}]")
         return stream.to(target, bwlimit=bwlimit, dry_run=dry_run)
 
     elif (base := ancestor(snapshot, source, target)) is not None:
         stream = source.send(snapshot, base)
-        log.info(f"rift send (incremental) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{source.fqn}'")
+        log.info(f"rift send (incremental) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
         log.debug(f"incremental send '{snapshot.fqn}' from base '{base.fqn}' [{sizeof_fmt(stream.size())}]")
         return stream.to(target, bwlimit=bwlimit, dry_run=dry_run)
 
     else:
         stream = source.send(snapshot)
-        log.info(f"rift send (full) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{source.fqn}'")
+        log.info(f"rift send (full) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
         return stream.to(target, bwlimit=bwlimit, dry_run=dry_run)
 
 
