@@ -146,7 +146,7 @@
           };
 
           packages = {
-            default = python.pkgs.buildPythonApplication {
+            rift = python.pkgs.buildPythonApplication {
               pname = "rift";
               version = "unstable-2015-11-07";
               pyproject = true;
