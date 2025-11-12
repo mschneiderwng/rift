@@ -148,16 +148,17 @@
           packages = {
             default = python.pkgs.buildPythonApplication {
               pname = "rift";
-              version = "0.01";
+              version = "unstable-2015-11-07";
               pyproject = true;
               src = ./.;
-              propagatedBuildInputs = with python.pkgs; [
-                attrs
-                click
-                multimethod
-                precisely
-                setuptools
-                structlog
+              propagatedBuildInputs = [
+                pkgs.zfs
+                pkgs.mbuffer
+                python.pkgs.attrs
+                python.pkgs.click
+                python.pkgs.multimethod
+                python.pkgs.setuptools
+                python.pkgs.structlog
               ];
             };
             package = pythonSet.mkVirtualEnv "rift-env" workspace.deps.default; # this code + deps
