@@ -11,7 +11,7 @@ import click
 import structlog
 
 import rift.datasets
-from rift.commands import SystemRunner
+from rift.async_commands import SystemRunner
 from rift.datasets import Dataset, Remote
 from rift.snapshots import Bookmark, Snapshot
 from rift.zfs import ZfsBackend
@@ -173,10 +173,16 @@ def send(source, target, bwlimit, dry_run, verbose):
 )
 @click.option("--bwlimit", help="Bandwidth limit (needs mbuffer).")
 @click.option(
-    "--source-ssh-options", "-s", multiple=True, help='Ssh options like -o "Compression=yes" for source. Can be used multiple times.'
+    "--source-ssh-options",
+    "-s",
+    multiple=True,
+    help='Ssh options like -o "Compression=yes" for source. Can be used multiple times.',
 )
 @click.option(
-    "--target-ssh-options", "-t", multiple=True, help='Ssh options like -o "Compression=yes" for target. Can be used multiple times.'
+    "--target-ssh-options",
+    "-t",
+    multiple=True,
+    help='Ssh options like -o "Compression=yes" for target. Can be used multiple times.',
 )
 @dry_run_option()
 @verbose_option()

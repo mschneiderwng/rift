@@ -1,19 +1,28 @@
 import re
-import subprocess
 from subprocess import PIPE, Popen
 from typing import Sequence
 
 import structlog
 
 
-class NoSuchDatasetError(subprocess.CalledProcessError):
-    def __init__(self, returncode, cmd, output=None, stderr=None):
-        super().__init__(returncode, cmd, output, stderr)
+class SubprocessError(Exception):
+    def __init__(self, message, cmd):
+        super().__init__(message)
+        self.message = message
+        self.cmd = " ".join(cmd)
+
+    def __str__(self):
+        return f"Command `{self.cmd}` failed: {self.message}"
 
 
-class DestinationFilesystemExists(subprocess.CalledProcessError):
-    def __init__(self, returncode, cmd, output=None, stderr=None):
-        super().__init__(returncode, cmd, output, stderr)
+class NoSuchDatasetError(SubprocessError):
+    def __init__(self, message, cmd):
+        super().__init__(message, cmd)
+
+
+class DestinationFilesystemExists(SubprocessError):
+    def __init__(self, message, cmd):
+        super().__init__(message, cmd)
 
 
 class Runner:
@@ -45,10 +54,10 @@ class SystemRunner(Runner):
         for (stdout, stderr), proc in zip(outputs, processes):
             if proc.returncode != 0:
                 if "dataset does not exist" in str(stderr):
-                    raise NoSuchDatasetError(proc.returncode, proc.args, stdout, stderr)
+                    raise NoSuchDatasetError(str(stderr), proc.args)
                 elif re.match(".* destination '.*' exists", str(stderr)):
-                    raise DestinationFilesystemExists(proc.returncode, proc.args, stdout, stderr)
+                    raise DestinationFilesystemExists(str(stderr), proc.args)
                 else:
-                    raise subprocess.CalledProcessError(proc.returncode, proc.args, stdout, stderr)
+                    raise SubprocessError(str(stderr), proc.args)
 
         return outputs[-1][0].decode().strip()
