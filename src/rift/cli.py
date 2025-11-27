@@ -134,6 +134,7 @@ def error_handler():
 
 
 @click.group()
+@click.version_option()
 def main():
     pass
 

@@ -148,7 +148,7 @@
           packages = {
             rift = python.pkgs.buildPythonApplication {
               pname = "rift";
-              version = "unstable-2015-11-07";
+              version = "1.1";
               pyproject = true;
               src = ./.;
               propagatedBuildInputs = [
