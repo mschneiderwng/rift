@@ -142,7 +142,7 @@
         {
           apps.default = {
             type = "app";
-            program = "${self.packages.${system}.default}/bin/rift";
+            program = "${self.packages.${system}.rift}/bin/rift";
           };
 
           packages = {
