@@ -107,61 +107,6 @@ wheels = [
 ]
 
 [[package]]
-name = "rift"
-version = "1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "attrs" },
-    { name = "click" },
-    { name = "multimethod" },
-    { name = "structlog" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "coverage" },
-    { name = "precisely" },
-    { name = "pytest" },
-    { name = "ruff" },
-    { name = "ty" },
-]
-lint = [
-    { name = "ruff" },
-]
-test = [
-    { name = "coverage" },
-    { name = "precisely" },
-    { name = "pytest" },
-]
-typing = [
-    { name = "ty" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "attrs", specifier = ">=25.3.0" },
-    { name = "click", specifier = ">=8.1" },
-    { name = "multimethod", specifier = ">=2.0" },
-    { name = "structlog", specifier = ">=25.4.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "coverage", specifier = ">=7.10.7" },
-    { name = "precisely", specifier = ">=0.1.9" },
-    { name = "pytest", specifier = ">=8.3.4" },
-    { name = "ruff", specifier = ">=0.9.3" },
-    { name = "ty", specifier = ">=0.0.1a21" },
-]
-lint = [{ name = "ruff", specifier = ">=0.9.3" }]
-test = [
-    { name = "coverage", specifier = ">=7.10.7" },
-    { name = "precisely", specifier = ">=0.1.9" },
-    { name = "pytest", specifier = ">=8.3.4" },
-]
-typing = [{ name = "ty", specifier = ">=0.0.1a21" }]
-
-[[package]]
 name = "iniconfig"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -230,6 +175,77 @@ sdist = { url = "https://files.pythonhosted.org/packages/08/ba/45911d754e8eba3d5
 wheels = [
     { url = "https://files.pythonhosted.org/packages/29/16/c8a903f4c4dffe7a12843191437d7cd8e32751d5de349d45d3fe69544e87/pytest-8.4.1-py3-none-any.whl", hash = "sha256:539c70ba6fcead8e78eebbf1115e8b589e7565830d7d006a8723f19ac8a0afb7", size = 365474, upload-time = "2025-06-18T05:48:03.955Z" },
 ]
+
+[[package]]
+name = "pytest-cov"
+version = "7.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "coverage" },
+    { name = "pluggy" },
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5e/f7/c933acc76f5208b3b00089573cf6a2bc26dc80a8aece8f52bb7d6b1855ca/pytest_cov-7.0.0.tar.gz", hash = "sha256:33c97eda2e049a0c5298e91f519302a1334c26ac65c1a483d6206fd458361af1", size = 54328, upload-time = "2025-09-09T10:57:02.113Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ee/49/1377b49de7d0c1ce41292161ea0f721913fa8722c19fb9c1e3aa0367eecb/pytest_cov-7.0.0-py3-none-any.whl", hash = "sha256:3b8e9558b16cc1479da72058bdecf8073661c7f57f7d3c5f22a1c23507f2d861", size = 22424, upload-time = "2025-09-09T10:57:00.695Z" },
+]
+
+[[package]]
+name = "rift"
+version = "1.1"
+source = { editable = "." }
+dependencies = [
+    { name = "attrs" },
+    { name = "click" },
+    { name = "multimethod" },
+    { name = "pytest-cov" },
+    { name = "structlog" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "coverage" },
+    { name = "precisely" },
+    { name = "pytest" },
+    { name = "ruff" },
+    { name = "ty" },
+]
+lint = [
+    { name = "ruff" },
+]
+test = [
+    { name = "coverage" },
+    { name = "precisely" },
+    { name = "pytest" },
+]
+typing = [
+    { name = "ty" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "attrs", specifier = ">=25.3.0" },
+    { name = "click", specifier = ">=8.1" },
+    { name = "multimethod", specifier = ">=2.0" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "structlog", specifier = ">=25.4.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "coverage", specifier = ">=7.10.7" },
+    { name = "precisely", specifier = ">=0.1.9" },
+    { name = "pytest", specifier = ">=8.3.4" },
+    { name = "ruff", specifier = ">=0.9.3" },
+    { name = "ty", specifier = ">=0.0.1a21" },
+]
+lint = [{ name = "ruff", specifier = ">=0.9.3" }]
+test = [
+    { name = "coverage", specifier = ">=7.10.7" },
+    { name = "precisely", specifier = ">=0.1.9" },
+    { name = "pytest", specifier = ">=8.3.4" },
+]
+typing = [{ name = "ty", specifier = ">=0.0.1a21" }]
 
 [[package]]
 name = "ruff"

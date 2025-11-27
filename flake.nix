@@ -60,14 +60,11 @@
         let
           inherit (nixpkgs) lib;
           # Load a uv workspace from a workspace root.
-          # Uv2nix treats all uv projects as workspace projects.
           workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
 
           # Create package overlay from workspace.
           overlay = workspace.mkPyprojectOverlay {
             # Prefer prebuilt binary wheels as a package source.
-            # Sdists are less likely to "just work" because of the metadata missing from uv.lock.
-            # Binary wheels are more likely to, but may still require overrides for library dependencies.
             sourcePreference = "wheel"; # or sourcePreference = "sdist";
           };
 
@@ -86,6 +83,40 @@
                 final.setuptools
               ];
             });
+
+            rift = prev.rift.overrideAttrs (old: {
+              passthru = old.passthru // {
+                tests =
+                  let
+                    # Construct a virtual environment with only the test dependency-group enabled.
+                    virtualenv = final.mkVirtualEnv "rift-pytest-env" {
+                      rift = [ "test" ];
+                    };
+
+                  in
+                  (old.tests or { })
+                  // {
+                    pytest = pkgs.stdenv.mkDerivation {
+                      name = "${final.rift.name}-pytest";
+                      inherit (final.rift) src;
+                      nativeBuildInputs = [ virtualenv ];
+                      dontConfigure = true;
+                      buildPhase = ''
+                        runHook preBuild
+                        pytest --cov=rift --cov-report html
+                        runHook postBuild
+                      '';
+                      installPhase = ''
+                        runHook preInstall
+                        mv htmlcov $out
+                        runHook postInstall
+                      '';
+                    };
+
+                  };
+              };
+            });
+
           };
 
           # Construct package set
@@ -128,11 +159,6 @@
                   };
 
                   # Hatchling (our build system) has a dependency on the `editables` package when building editables.
-                  #
-                  # In normal Python flows this dependency is dynamically handled, and doesn't need to be explicitly declared.
-                  # This behaviour is documented in PEP-660.
-                  #
-                  # With Nix the dependency needs to be explicitly declared.
                   nativeBuildInputs = old.nativeBuildInputs ++ final.resolveBuildSystem { editables = [ ]; };
                 });
               })
@@ -146,9 +172,10 @@
           };
 
           packages = {
+            default = config.packages.rift;
             rift = python.pkgs.buildPythonApplication {
               pname = "rift";
-              version = "1.1";
+              version = (builtins.fromTOML (builtins.readFile ./pyproject.toml)).project.version;
               pyproject = true;
               src = ./.;
               propagatedBuildInputs = [
@@ -165,22 +192,10 @@
             venv = editablePythonSet.mkVirtualEnv "rift-venv" workspace.deps.all; # deps only
           };
 
-          # # Pytest flake using uv2nix
-          # checks =
-          #   let
-          #     test-deps = editablePythonSet.mkVirtualEnv "rift-test-env" { rift = [ "test" ]; };
-          #     typing-deps = editablePythonSet.mkVirtualEnv "rift-typing-env" { rift = [ "typing" ]; };
-          #   in
-          #   {
-          #     pytest = pkgs.runCommand "pytest-check" { buildInputs = [ test-deps ]; } ''
-          #       pytest ${self}
-          #       mkdir $out
-          #     '';
-          #     ty = pkgs.runCommand "ty-check" { buildInputs = [ typing-deps ]; } ''
-          #       ty check ${self}
-          #       mkdir $out
-          #     '';
-          #   };
+          # run with nix flake check -L
+          checks = {
+            inherit (pythonSet.rift.passthru.tests) pytest;
+          };
 
           # run with nix fmt
           treefmt.config = {
@@ -253,5 +268,13 @@
               };
           };
         };
+
+      flake.nixosModules.rift = {
+        imports = [
+          (import ./modules/snapshots self)
+          (import ./modules/prune self)
+          (import ./modules/sync self)
+        ];
+      };
     };
 }

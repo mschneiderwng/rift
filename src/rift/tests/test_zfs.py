@@ -9,7 +9,7 @@ from rift.zfs import Remote, ZfsBackend, ZfsStream
 
 
 @define
-class TestRunner(Runner):
+class RunnerMock(Runner):
     recorded: list[Sequence[str]] = Factory(list)
     returns: str = ""
     raises: Optional[Exception] = None
@@ -25,26 +25,26 @@ class TestRunner(Runner):
 
 
 def test_exists():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     assert_that(dataset.exists(), equal_to(True))
 
 
 def test_not_exists():
-    runner = TestRunner(raises=NoSuchDatasetError(1, ""))
+    runner = RunnerMock(raises=NoSuchDatasetError(1, ""))
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     assert_that(dataset.exists(), equal_to(False))
 
 
 def test_snapshot():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     dataset.snapshot("s2")
     assert_that(runner.recorded, equal_to([("zfs", "snapshot", "source/A@s2")]))
 
 
 def test_snapshot_remote():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=Remote("user@host"), runner=runner)
     dataset.snapshot("s2")
     assert_that(
@@ -54,7 +54,7 @@ def test_snapshot_remote():
 
 
 def test_snapshot_remote_options():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(
         path="source/A",
         remote=Remote("user@host", options=("ServerAliveInterval=60", "Compression=yes")),
@@ -83,14 +83,14 @@ def test_snapshot_remote_options():
 
 
 def test_bookmark():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     dataset.bookmark("s2")
     assert_that(runner.recorded, equal_to([("zfs", "bookmark", "source/A@s2", "source/A#s2")]))
 
 
 def test_bookmark_remote():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=Remote("user@host"), runner=runner)
     dataset.bookmark("s2")
     assert_that(
@@ -112,7 +112,7 @@ def test_bookmark_remote():
 
 
 def test_snapshots():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     dataset.snapshots()
     assert_that(
@@ -134,7 +134,7 @@ def test_snapshots():
 
 
 def test_snapshots_cache():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     dataset.snapshots()
     dataset.snapshots()
@@ -157,7 +157,7 @@ def test_snapshots_cache():
 
 
 def test_snapshots_remote():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=Remote("user@host"), runner=runner)
     dataset.snapshots()
     assert_that(
@@ -182,7 +182,7 @@ def test_snapshots_remote():
 
 
 def test_bookmarks():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     dataset.bookmarks()
     assert_that(
@@ -204,7 +204,7 @@ def test_bookmarks():
 
 
 def test_bookmarks_cache():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     dataset.bookmarks()
     dataset.bookmarks()
@@ -227,7 +227,7 @@ def test_bookmarks_cache():
 
 
 def test_bookmarks_remote():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=Remote("user@host"), runner=runner)
     dataset.bookmarks()
     assert_that(
@@ -252,14 +252,14 @@ def test_bookmarks_remote():
 
 
 def test_send_resume():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     stream = dataset.send("token")
     assert_that(stream, equal_to(ZfsStream(("zfs", "send", "-w", "-t", "token"), runner)))
 
 
 def test_send_incremental_from_bookmark():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     anchor = Bookmark(fqn="source/A#s1", guid="uuid:source/A@s1", createtxg=1)
     snapshot = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
@@ -271,7 +271,7 @@ def test_send_incremental_from_bookmark():
 
 
 def test_send_incremental_from_snapshot():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     anchor = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
     snapshot = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
@@ -283,7 +283,7 @@ def test_send_incremental_from_snapshot():
 
 
 def test_send_full():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     snapshot = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
     stream = dataset.send(snapshot)
@@ -291,7 +291,7 @@ def test_send_full():
 
 
 def test_recv():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     dataset.recv(ZfsStream(("zfs", "send", "..."), runner), bwlimit=None, dry_run=False)
     assert_that(
@@ -301,7 +301,7 @@ def test_recv():
 
 
 def test_recv_bwlimit():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     dataset.recv(ZfsStream(("zfs", "send", "..."), runner), bwlimit="1M", dry_run=False)
     assert_that(
@@ -317,7 +317,7 @@ def test_recv_bwlimit():
 
 
 def test_resume_token():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     dataset.resume_token()
     assert_that(
@@ -327,7 +327,7 @@ def test_resume_token():
 
 
 def test_resume_token_cache():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     dataset.resume_token()
     dataset.resume_token()
@@ -338,7 +338,7 @@ def test_resume_token_cache():
 
 
 def test_stream_size():
-    runner = TestRunner(
+    runner = RunnerMock(
         returns="send from source/A@rift_2025-10-11_10:42:52_weekly to source/A@rift_2025-10-11_12:40:19_weekly estimated size is 624B\ntotal estimated size is 624"
     )
     size = ZfsStream(("zfs", "send", "..."), runner).size()
@@ -346,14 +346,14 @@ def test_stream_size():
 
 
 def test_destroy_none():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     dataset.destroy([], dry_run=False)
     assert_that(runner.recorded, equal_to([]))
 
 
 def test_destroy():
-    runner = TestRunner()
+    runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     dataset.destroy(["s1", "s2"], dry_run=False)
     assert_that(runner.recorded, equal_to([("zfs", "destroy", "source/A@s1,s2")]))

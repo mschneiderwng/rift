@@ -1,6 +1,7 @@
 [project]
 name = "rift"
 version = "1.1"
+description = "rift: zfs send, sync and prune"
 readme = "README.md"
 authors = [{ name = "Markus Schneider", email = "mschneider@linkdot.org" }]
 requires-python = ">=3.12"
@@ -18,7 +19,12 @@ dev = [
     { include-group = "lint" },
 ]
 typing = ["ty>=0.0.1a21"]
-test = ["pytest>=8.3.4", "precisely>=0.1.9", "coverage>=7.10.7"]
+test = [
+    "pytest>=8.3.4",
+    "precisely>=0.1.9",
+    "coverage>=7.10.7",
+    "pytest-cov>=7.0.0",
+]
 lint = ["ruff>=0.9.3"]
 
 [project.scripts]
