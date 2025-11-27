@@ -6,7 +6,7 @@ self:
   ...
 }:
 let
-  cfg = config.ash.services.rift.snapshots;
+  cfg = config.services.rift.snapshots;
   rift = "${self.packages.${pkgs.system}.rift}";
 
   mkPermissions =
@@ -106,7 +106,7 @@ let
 
 in
 {
-  options.ash.services.rift.snapshots = {
+  options.services.rift.snapshots = {
     enable = lib.mkEnableOption "rift snapshot service";
 
     datasets = lib.mkOption {

@@ -6,7 +6,7 @@ self:
   ...
 }:
 let
-  cfg = config.ash.services.rift.sync;
+  cfg = config.services.rift.sync;
   rift = "${self.packages.${pkgs.system}.rift}";
 
   # Escape as required by: https://www.freedesktop.org/software/systemd/man/systemd.unit.html
@@ -111,7 +111,7 @@ let
 
 in
 {
-  options.ash.services.rift.sync = {
+  options.services.rift.sync = {
 
     enable = lib.mkEnableOption "Enable rift ZFS sync service";
 
@@ -160,7 +160,7 @@ in
         Mapping of remote rift receivers to their sync configuration.
       '';
       example = ''
-        ash.services.rift.sync.remotes."rift-recv@nas" = {
+        services.rift.sync.remotes."rift-recv@nas" = {
           datasets = [ "rpool/.../dev" "rpool/.../docs" ];
         };
       '';

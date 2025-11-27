@@ -6,7 +6,7 @@ self:
   ...
 }:
 let
-  cfg = config.ash.services.rift.prune;
+  cfg = config.services.rift.prune;
   rift = "${self.packages.${pkgs.system}.rift}";
 
   join = builtins.concatStringsSep;
@@ -32,7 +32,7 @@ let
   attrKeys = attrs: lib.mapAttrsToList (name: value: name) attrs;
 in
 {
-  options.ash.services.rift.prune = {
+  options.services.rift.prune = {
     enable = lib.mkEnableOption "rift prune service";
 
     datasets = lib.mkOption {
