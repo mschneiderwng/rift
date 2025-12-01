@@ -12,7 +12,7 @@ class SubprocessError(Exception):
         self.cmd = cmd
 
     def __str__(self):
-        return f"Command `{self.cmd}` failed: {self.message}"
+        return f"Command `{' '.join(self.cmd)}` failed: {self.message}"
 
 
 class NoSuchDatasetError(SubprocessError):
