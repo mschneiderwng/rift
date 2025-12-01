@@ -32,7 +32,7 @@ let
   mkSync =
     cfg: remote: datasets:
     map (
-      ds: "${rift}/bin/rift sync -vv ${cfg.riftOptions} ${cfg.sshOptions} ${ds} ${remote}/${ds}"
+      ds: "${rift}/bin/rift sync -vv ${cfg.extraArgs} ${cfg.sshOptions} ${ds} ${remote}/${ds}"
     ) datasets;
 
   mkSyncService = remote: cfg: {
@@ -145,7 +145,7 @@ in
               default = "-t ControlPath=/var/cache/rift/ssh-master -t ControlMaster=auto -t ControlPersist=60 -t IdentityFile=\${CREDENTIALS_DIRECTORY}/ssh_key";
             };
 
-            riftOptions = lib.mkOption {
+            extraArgs = lib.mkOption {
               type = lib.types.str;
               description = ''Options passed to rift.'';
               default = ''--filter "rift_.*_.*(?<!frequently)$"'';
