@@ -29,11 +29,23 @@ let
   allow = perm: datasets: (map (mkPermissions "allow" perm) datasets);
   unallow = permissions: datasets: (map (mkPermissions "unallow" permissions) datasets);
 
+  # ds: "${rift}/bin/rift sync -vv ${cfg.extraArgs} ${cfg.sshOptions} ${ds} ${remote}/${ds}"
+
   mkSync =
-    cfg: remote: datasets:
-    map (
-      ds: "${rift}/bin/rift sync -vv ${cfg.extraArgs} ${cfg.sshOptions} ${ds} ${remote}/${ds}"
-    ) datasets;
+    cfg: remote: dataset:
+    lib.escapeShellArgs (
+      [
+        "${rift}/bin/rift"
+        "sync"
+      ]
+      ++ lib.optional (cfg.verbosity != "") cfg.verbosity
+      ++ cfg.extraArgs
+      ++ map (option: "-t ${option}") cfg.sshOptions
+      ++ [
+        "${dataset}"
+        "${remote}/${dataset}"
+      ]
+    );
 
   mkSyncService = remote: cfg: {
     name = "rift-sync-${if cfg.name == null then (escapeUnitName remote) else cfg.name}";
@@ -50,7 +62,7 @@ let
         Type = "oneshot";
         ExecStartPre = allow [ "send" ] cfg.datasets;
         ExecStopPost = unallow [ "send" ] cfg.datasets;
-        ExecStart = mkSync cfg remote cfg.datasets;
+        ExecStart = map (mkSync cfg remote) cfg.datasets;
         CPUWeight = 20;
         CPUQuota = "75%";
         BindPaths = [ "/dev/zfs" ];
@@ -140,9 +152,14 @@ in
             };
 
             sshOptions = lib.mkOption {
-              type = lib.types.str;
+              type = lib.types.listOf lib.types.str;
               description = ''Options passed to ssh.'';
-              default = "-t ControlPath=/var/cache/rift/ssh-master -t ControlMaster=auto -t ControlPersist=60 -t IdentityFile=\${CREDENTIALS_DIRECTORY}/ssh_key";
+              default = [
+                "ControlPath=/var/cache/rift/ssh-master"
+                "ControlMaster=auto"
+                "ControlPersist=60"
+                "IdentityFile=\${CREDENTIALS_DIRECTORY}/ssh_key"
+              ];
             };
 
             filter = lib.mkOption {
@@ -155,6 +172,12 @@ in
               type = lib.types.str;
               description = ''Bandwidth limit in bytes/kbytes/etc per second on the source transfer (see mbuffer).'';
               default = "";
+            };
+
+            verbosity = lib.mkOption {
+              type = lib.types.str;
+              description = ''Logging verbosity'';
+              default = "-vv";
             };
 
             extraArgs = lib.mkOption {
