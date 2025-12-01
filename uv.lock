@@ -198,7 +198,6 @@ dependencies = [
     { name = "attrs" },
     { name = "click" },
     { name = "multimethod" },
-    { name = "pytest-cov" },
     { name = "structlog" },
 ]
 
@@ -207,6 +206,7 @@ dev = [
     { name = "coverage" },
     { name = "precisely" },
     { name = "pytest" },
+    { name = "pytest-cov" },
     { name = "ruff" },
     { name = "ty" },
 ]
@@ -217,6 +217,7 @@ test = [
     { name = "coverage" },
     { name = "precisely" },
     { name = "pytest" },
+    { name = "pytest-cov" },
 ]
 typing = [
     { name = "ty" },
@@ -227,7 +228,6 @@ requires-dist = [
     { name = "attrs", specifier = ">=25.3.0" },
     { name = "click", specifier = ">=8.1" },
     { name = "multimethod", specifier = ">=2.0" },
-    { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "structlog", specifier = ">=25.4.0" },
 ]
 
@@ -236,6 +236,7 @@ dev = [
     { name = "coverage", specifier = ">=7.10.7" },
     { name = "precisely", specifier = ">=0.1.9" },
     { name = "pytest", specifier = ">=8.3.4" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "ruff", specifier = ">=0.9.3" },
     { name = "ty", specifier = ">=0.0.1a21" },
 ]
@@ -244,6 +245,7 @@ test = [
     { name = "coverage", specifier = ">=7.10.7" },
     { name = "precisely", specifier = ">=0.1.9" },
     { name = "pytest", specifier = ">=8.3.4" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
 ]
 typing = [{ name = "ty", specifier = ">=0.0.1a21" }]
 

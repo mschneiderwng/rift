@@ -9,7 +9,7 @@ class SubprocessError(Exception):
     def __init__(self, message, cmd):
         super().__init__(message)
         self.message = message
-        self.cmd = " ".join(cmd)
+        self.cmd = cmd
 
     def __str__(self):
         return f"Command `{self.cmd}` failed: {self.message}"
