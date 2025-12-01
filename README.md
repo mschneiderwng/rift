@@ -2,7 +2,7 @@
 
 __Warning: This tool is not production ready!__
 
-I wanted a zfs replication tool which comprises many dedicate very small programs which do just as much as neccessary.
+I wanted a zfs replication tool which consists of many dedicate very small programs which do just as much as necessary with very few permissions. Especially, a compromised host should not be able to destroy backups on a remote.
 
 # Interface
 
@@ -42,7 +42,8 @@ be sent to the target. The default filter is `"rift.*"`.
 I let `systemd` handle all the automation with the goal to give the least possible amount of permissions. 
 - One service that creates snapshots (more precisely a service template which runs hourly, daily, ...).
 - One service that purges snapshots.
-- One service that sends snapthosts to a remote.
+- One service that sends snapshots to a remote.
+    - This service assumes there is a user `rift-recv` at the remote with the zfs permissions `create,receive,mount`. That way, it is not possible to destroy backups remotely. Snapshots on the remote should be pruned with its own locally running service.
 
 `nix` is used a configuration language which creates the services and timers. An example for the created units can be seen in the following.
 
@@ -98,10 +99,10 @@ I let `systemd` handle all the automation with the goal to give the least possib
         services.rift.sync = {
             enable = false;
             remotes = {
-            "rift-recv@nas:backups/nas" = {
-                name = "nas";
-                datasets = datasets;
-            };
+                "rift-recv@nas:backups/nas" = {
+                    name = "nas";
+                    datasets = datasets;
+                };
             };
         };
     }
