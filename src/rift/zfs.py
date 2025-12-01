@@ -23,16 +23,16 @@ class ZfsStream(Stream):
     args: tuple[str, ...]
     runner: Runner
 
-    def size(self) -> int:
+    def size(self) -> str:
         """Returns the estimated size of the stream in bytes"""
         log = structlog.get_logger()
         log.debug("getting estimate of snapshot (stream) size")
         # get size estimate by running the command in --dry-run mode and parsing output
         output = self.runner.run(self.args + ("-n", "-v"))
-        m = re.match(r".*\ntotal estimated size is (\d+)", output, re.MULTILINE)
+        m = re.match(r".*\ntotal estimated size is (.+)$", output, re.MULTILINE)
         if not m:
             raise RuntimeError(f"cannot parse size form output '{output}'")
-        return int(m.group(1))
+        return m.group(1)
 
 
 @frozen(slots=False)

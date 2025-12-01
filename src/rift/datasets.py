@@ -11,7 +11,9 @@ from rift.snapshots import Bookmark, Snapshot
 guid = str
 
 
-def sizeof_fmt(num, suffix="B"):
+def sizeof_fmt(num: str, suffix: str = "B") -> str:
+    # at the moment, simply return the string returned by zfs
+    return num
     for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
         if abs(num) < 1024.0:
             return f"{num:3.1f}{unit}{suffix}"
