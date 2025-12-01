@@ -16,7 +16,7 @@ supports incremental send from bookmarks.
     rift send src/data@snap1 back/src/data                         # local copy
 
 ### Flags
-Bandwidth limits needs `mbuffer` installed. The quantity passed to `--bwlimit` is forwarded to `mbuffer -m`.
+Bandwidth limits needs `mbuffer` installed. The quantity passed to `--bwlimit` is forwarded to `mbuffer -r`.
 
     rift send src/data@snap1 user@remote:back/src/data --bwlimit 1M
 

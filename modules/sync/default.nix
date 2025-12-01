@@ -145,10 +145,22 @@ in
               default = "-t ControlPath=/var/cache/rift/ssh-master -t ControlMaster=auto -t ControlPersist=60 -t IdentityFile=\${CREDENTIALS_DIRECTORY}/ssh_key";
             };
 
-            extraArgs = lib.mkOption {
+            filter = lib.mkOption {
               type = lib.types.str;
-              description = ''Options passed to rift.'';
-              default = ''--filter "rift_.*_.*(?<!frequently)$"'';
+              description = ''A regex matching the snapshots to be sent.'';
+              default = ''--filter "rift_.*_.*(?<!frequently)$"''; # all but frequently
+            };
+
+            bwlimit = lib.mkOption {
+              type = lib.types.str;
+              description = ''Bandwidth limit in bytes/kbytes/etc per second on the source transfer (see mbuffer).'';
+              default = "";
+            };
+
+            extraArgs = lib.mkOption {
+              type = lib.types.listOf lib.types.str;
+              default = [ ];
+              description = "Extra rift arguments.";
             };
 
             timerConfig = lib.mkOption {

@@ -111,7 +111,7 @@ class ZfsBackend(Backend):
         self.cache_clear()
         args = ssh(self.remote) + ("zfs", "receive", "-s", "-u", self.path) + (("-n", "-v") if dry_run else ())
         if bwlimit is not None:
-            mbuffer = ("mbuffer", "-m", bwlimit) if bwlimit is not None else ()
+            mbuffer = ("mbuffer", "-r", bwlimit) if bwlimit is not None else ()
             self.runner.run(stream.args, mbuffer, args)
         else:
             self.runner.run(stream.args, args)

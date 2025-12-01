@@ -309,7 +309,7 @@ def test_recv_bwlimit():
         equal_to(
             [
                 ("zfs", "send", "..."),
-                ("mbuffer", "-m", "1M"),
+                ("mbuffer", "-r", "1M"),
                 ("zfs", "receive", "-s", "-u", "source/A"),
             ]
         ),
