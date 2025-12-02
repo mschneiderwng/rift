@@ -29,8 +29,6 @@ let
   allow = perm: datasets: (map (mkPermissions "allow" perm) datasets);
   unallow = permissions: datasets: (map (mkPermissions "unallow" permissions) datasets);
 
-  # ds: "${rift}/bin/rift sync -vv ${cfg.extraArgs} ${cfg.sshOptions} ${ds} ${remote}/${ds}"
-
   mkSync =
     cfg: remote: dataset:
     lib.escapeShellArgs (
@@ -40,7 +38,10 @@ let
       ]
       ++ lib.optional (cfg.verbosity != "") cfg.verbosity
       ++ cfg.extraArgs
-      ++ map (option: "-t ${option}") cfg.sshOptions
+      ++ builtins.concatMap (option: [
+        "-t"
+        option
+      ]) cfg.sshOptions
       ++ [
         "${dataset}"
         "${remote}/${dataset}"

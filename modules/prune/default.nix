@@ -28,8 +28,6 @@ let
     policy: join " " (lib.mapAttrsToList (tag: keep: "--keep ${toString keep} rift_.*_${tag}") policy);
 
   mkPrune = dataset: policy: "${rift}/bin/rift prune -v ${mkPolicy policy} ${dataset}";
-
-  attrKeys = attrs: lib.mapAttrsToList (name: value: name) attrs;
 in
 {
   options.services.rift.prune = {
@@ -60,7 +58,7 @@ in
         RandomizedDelaySec = "10min";
         Persistent = true;
       };
-      description = "systemd timer configuration";
+      description = "Systemd timer configuration";
     };
   };
 
@@ -84,8 +82,8 @@ in
         Type = "oneshot";
         RuntimeDirectory = "rift";
         CacheDirectory = "rift";
-        ExecStartPre = allow [ "destroy" "mount" ] (attrKeys cfg.datasets);
-        ExecStopPost = unallow [ "destroy" "mount" ] (attrKeys cfg.datasets);
+        ExecStartPre = allow [ "destroy" "mount" ] (builtins.attrNames cfg.datasets);
+        ExecStopPost = unallow [ "destroy" "mount" ] (builtins.attrNames cfg.datasets);
         ExecStart = lib.mapAttrsToList mkPrune cfg.datasets;
         CPUWeight = 20;
         CPUQuota = "75%";
