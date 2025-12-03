@@ -36,6 +36,10 @@ let
         "${rift}/bin/rift"
         "sync"
       ]
+      ++ lib.optionals (cfg.filter != "") [
+        "--filter"
+        cfg.filter
+      ]
       ++ lib.optional (cfg.verbosity != "") cfg.verbosity
       ++ cfg.extraArgs
       ++ builtins.concatMap (option: [
@@ -60,7 +64,7 @@ let
         after = [ "zfs.target" ];
         path = [ pkgs.openssh ];
         serviceConfig = {
-          LoadCredential = [ "ssh_key:${config.sops.secrets."rift/sync/key".path}" ];
+          LoadCredential = [ "ssh_key:${cfg.sshPrivateKey}" ];
           User = "rift";
           Group = "rift";
           StateDirectory = [ "rift" ];
@@ -161,6 +165,11 @@ in
               default = null;
             };
 
+            sshPrivateKey = lib.mkOption {
+              type = lib.types.str;
+              description = ''Passed to systemd LoadCredential.'';
+            };
+
             sshOptions = lib.mkOption {
               type = lib.types.listOf lib.types.str;
               description = ''Options passed to ssh.'';
@@ -175,7 +184,7 @@ in
             filter = lib.mkOption {
               type = lib.types.str;
               description = ''A regex matching the snapshots to be sent.'';
-              default = ''--filter "rift_.*_.*(?<!frequently)$"''; # all but frequently
+              default = ''"rift_.*_.*(?<!frequently)$"''; # all but frequently
             };
 
             bwlimit = lib.mkOption {
@@ -187,7 +196,7 @@ in
             verbosity = lib.mkOption {
               type = lib.types.str;
               description = ''Logging verbosity'';
-              default = "-vv";
+              default = "-v";
             };
 
             extraArgs = lib.mkOption {
@@ -203,7 +212,7 @@ in
                 RandomizedDelaySec = "10min";
                 Persistent = true;
               };
-              description = "systemd timer configuration";
+              description = "Systemd timer configuration.";
             };
           };
         })
@@ -223,14 +232,11 @@ in
 
   config = lib.mkIf cfg.enable {
     ash.services.notify-email.enable = true;
-    ash.programs.sops.enable = true;
 
     environment.systemPackages = with pkgs; [
       rift
       mbuffer
     ];
-
-    sops.secrets."rift/sync/key" = { };
 
     users.groups."rift" = { };
     users.users."rift" = {

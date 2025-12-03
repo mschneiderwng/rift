@@ -37,6 +37,21 @@ let
     };
   };
 
+  mkSnapshot =
+    schedule: dataset:
+    lib.escapeShellArgs (
+      [
+        "${rift}/bin/rift"
+        "snapshot"
+      ]
+      ++ lib.optional (cfg.verbosity != "") cfg.verbosity
+      ++ [
+        "--tag"
+        "${schedule}"
+      ]
+      ++ [ dataset ]
+    );
+
   mkSnapshotService =
     schedule: datasets:
     let
@@ -46,7 +61,7 @@ let
       name = untitName;
       value = {
         description = "rift snapshot service";
-        onFailure = [ "notify-email@%n.service" ];
+        onFailure = cfg.onFailure;
         after = [ "zfs.target" ];
         serviceConfig = {
           User = "rift";
@@ -60,7 +75,7 @@ let
           Type = "oneshot";
           ExecStartPre = allow [ "snapshot" "bookmark" ] datasets;
           ExecStopPost = unallow [ "snapshot" "bookmark" ] datasets;
-          ExecStart = map (ds: "${rift}/bin/rift snapshot -v --tag ${schedule} ${ds}") datasets;
+          ExecStart = map (mkSnapshot schedule) datasets;
           CPUWeight = 20;
           CPUQuota = "75%";
           BindPaths = [ "/dev/zfs" ];
@@ -177,10 +192,21 @@ in
       };
       description = ''Mapping scheduls/tags to systemd timer configs.'';
     };
+
+    onFailure = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "systemd OnFailure= dependencies.";
+    };
+
+    verbosity = lib.mkOption {
+      type = lib.types.str;
+      description = ''Logging verbosity'';
+      default = "-v";
+    };
   };
 
   config = lib.mkIf cfg.enable {
-    ash.services.notify-email.enable = true;
 
     environment.systemPackages = with pkgs; [ rift ];
 

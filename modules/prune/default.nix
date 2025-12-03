@@ -9,8 +9,6 @@ let
   cfg = config.services.rift.prune;
   rift = "${self.packages.${pkgs.system}.rift}";
 
-  join = builtins.concatStringsSep;
-
   mkPermissions =
     action: permissions: dataset:
     lib.escapeShellArgs [
@@ -25,9 +23,26 @@ let
   unallow = permissions: datasets: (map (mkPermissions "unallow" permissions) datasets);
 
   mkPolicy =
-    policy: join " " (lib.mapAttrsToList (tag: keep: "--keep ${toString keep} rift_.*_${tag}") policy);
+    policy:
+    lib.lists.flatten (
+      lib.mapAttrsToList (tag: keep: [
+        "--keep"
+        (toString keep)
+        "rift_.*_${tag}"
+      ]) policy
+    );
 
-  mkPrune = dataset: policy: "${rift}/bin/rift prune -v ${mkPolicy policy} ${dataset}";
+  mkPrune =
+    dataset: policy:
+    lib.escapeShellArgs (
+      [
+        "${rift}/bin/rift"
+        "prune"
+      ]
+      ++ lib.optional (cfg.verbosity != "") cfg.verbosity
+      ++ mkPolicy policy
+      ++ [ dataset ]
+    );
 
   attrKeys = attrs: lib.mapAttrsToList (name: value: name) attrs;
 in
@@ -53,12 +68,6 @@ in
       '';
     };
 
-    onFailure = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      description = "systemd OnFailure= dependencies.";
-    };
-
     timerConfig = lib.mkOption {
       type = lib.types.attrs;
       default = {
@@ -75,11 +84,21 @@ in
       description = "systemd service configuration";
     };
 
+    onFailure = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "systemd OnFailure= dependencies.";
+    };
+
+    verbosity = lib.mkOption {
+      type = lib.types.str;
+      description = ''Logging verbosity'';
+      default = "-v";
+    };
+
   };
 
   config = lib.mkIf cfg.enable {
-
-
     environment.systemPackages = with pkgs; [ rift ];
 
     systemd.timers."rift-prune" = {

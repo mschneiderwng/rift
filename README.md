@@ -81,14 +81,21 @@ I let `systemd` handle all the automation with the goal to give the least possib
         mapToAttr = value: datasets: builtins.listToAttrs (map (name: { inherit name value; }) datasets);
 
     in
-        {
+    {
+        ash.services.notify-email.enable = true;
+        ash.programs.sops.enable = true;
+
+        sops.secrets."rift/sync/key" = { };
+
         services.rift.snapshots = {
             enable = true;
+            onFailure = [ "notify-email@%n.service" ];
             datasets = mapToAttr schedule datasets;
         };
 
         services.rift.prune = {
             enable = true;
+            onFailure = [ "notify-email@%n.service" ];
             datasets = mapToAttr shortterm datasets;
         };
 
@@ -97,12 +104,13 @@ I let `systemd` handle all the automation with the goal to give the least possib
         };
 
         services.rift.sync = {
-            enable = false;
+            enable = true;
             remotes = {
-                "rift-recv@nas:backups/nas" = {
-                    name = "nas";
-                    datasets = datasets;
-                };
+            "rift-recv@nas:spool/backups/yoga" = {
+                name = "nas";
+                sshPrivateKey = config.sops.secrets."rift/sync/key".path;
+                datasets = datasets;
+            };
             };
         };
     }
