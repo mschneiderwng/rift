@@ -231,8 +231,6 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    ash.services.notify-email.enable = true;
-
     environment.systemPackages = with pkgs; [
       rift
       mbuffer
