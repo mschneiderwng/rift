@@ -9,6 +9,13 @@ let
   cfg = config.services.rift.snapshots;
   rift = "${self.packages.${pkgs.system}.rift}";
 
+  # Escape as required by: https://www.freedesktop.org/software/systemd/man/systemd.unit.html
+  escapeUnitName =
+    name:
+    lib.concatMapStrings (s: if lib.isList s then "-" else s) (
+      builtins.split "[^a-zA-Z0-9_.\\-]+" name
+    );
+
   mkPermissions =
     action: permissions: dataset:
     lib.escapeShellArgs [
@@ -30,68 +37,77 @@ let
     };
   };
 
-  mkSnapshotService = schedule: datasets: {
-    name = "rift-snapshot-${schedule}";
-    value = {
-      description = "rift snapshot service";
-      onFailure = [ "notify-email@%n.service" ];
-      after = [ "zfs.target" ];
-      serviceConfig = {
-        User = "rift";
-        Group = "rift";
-        Type = "oneshot";
-        RuntimeDirectory = "rift";
-        CacheDirectory = "rift";
-        ExecStartPre = allow [ "snapshot" "bookmark" ] datasets;
-        ExecStopPost = unallow [ "snapshot" "bookmark" ] datasets;
-        ExecStart = map (ds: "${rift}/bin/rift snapshot -v --tag ${schedule} ${ds}") datasets;
-        CPUWeight = 20;
-        CPUQuota = "75%";
-        BindPaths = [ "/dev/zfs" ];
-        DeviceAllow = [ "/dev/zfs" ];
-        CapabilityBoundingSet = "";
-        DevicePolicy = "closed";
-        DynamicUser = true;
-        LockPersonality = true;
-        MemoryDenyWriteExecute = true;
-        NoNewPrivileges = true;
-        PrivateDevices = true;
-        PrivateMounts = true;
-        PrivateNetwork = true;
-        PrivateTmp = true;
-        PrivateUsers = false;
-        ProtectClock = true;
-        ProtectControlGroups = true;
-        ProtectHome = true;
-        ProtectHostname = true;
-        ProtectKernelLogs = true;
-        ProtectKernelModules = true;
-        ProtectKernelTunables = true;
-        ProtectProc = "invisible";
-        ProtectSystem = "strict";
-        RestrictAddressFamilies = [ "none" ];
-        RestrictNamespaces = true;
-        RestrictRealtime = true;
-        RestrictSUIDSGID = true;
-        SystemCallArchitectures = "native";
-        SystemCallFilter = [
-          " " # This is needed to clear the SystemCallFilter existing definitions
-          "~@reboot"
-          "~@swap"
-          "~@obsolete"
-          "~@mount"
-          "~@module"
-          "~@debug"
-          "~@cpu-emulation"
-          "~@clock"
-          "~@raw-io"
-          "~@privileged"
-          "~@resources"
-        ];
-        UMask = 0077;
+  mkSnapshotService =
+    schedule: datasets:
+    let
+      untitName = "rift-snapshot-${schedule}";
+    in
+    {
+      name = untitName;
+      value = {
+        description = "rift snapshot service";
+        onFailure = [ "notify-email@%n.service" ];
+        after = [ "zfs.target" ];
+        serviceConfig = {
+          User = "rift";
+          Group = "rift";
+          StateDirectory = [ "rift" ];
+          StateDirectoryMode = "700";
+          CacheDirectory = [ "rift" ];
+          CacheDirectoryMode = "700";
+          RuntimeDirectory = [ "rift/${untitName}" ];
+          RuntimeDirectoryMode = "700";
+          Type = "oneshot";
+          ExecStartPre = allow [ "snapshot" "bookmark" ] datasets;
+          ExecStopPost = unallow [ "snapshot" "bookmark" ] datasets;
+          ExecStart = map (ds: "${rift}/bin/rift snapshot -v --tag ${schedule} ${ds}") datasets;
+          CPUWeight = 20;
+          CPUQuota = "75%";
+          BindPaths = [ "/dev/zfs" ];
+          DeviceAllow = [ "/dev/zfs" ];
+          CapabilityBoundingSet = "";
+          DevicePolicy = "closed";
+          DynamicUser = true;
+          LockPersonality = true;
+          MemoryDenyWriteExecute = true;
+          NoNewPrivileges = true;
+          PrivateDevices = true;
+          PrivateMounts = true;
+          PrivateNetwork = true;
+          PrivateTmp = true;
+          PrivateUsers = false;
+          ProtectClock = true;
+          ProtectControlGroups = true;
+          ProtectHome = true;
+          ProtectHostname = true;
+          ProtectKernelLogs = true;
+          ProtectKernelModules = true;
+          ProtectKernelTunables = true;
+          ProtectProc = "invisible";
+          ProtectSystem = "strict";
+          RestrictAddressFamilies = [ "none" ];
+          RestrictNamespaces = true;
+          RestrictRealtime = true;
+          RestrictSUIDSGID = true;
+          SystemCallArchitectures = "native";
+          SystemCallFilter = [
+            " " # This is needed to clear the SystemCallFilter existing definitions
+            "~@reboot"
+            "~@swap"
+            "~@obsolete"
+            "~@mount"
+            "~@module"
+            "~@debug"
+            "~@cpu-emulation"
+            "~@clock"
+            "~@raw-io"
+            "~@privileged"
+            "~@resources"
+          ];
+          UMask = 0077;
+        };
       };
     };
-  };
 
   # Turn: { "rpool/user" = [ "daily" "weekly" ]; } into { daily = ["rpool/user"]; weekly = ["rpool/user"]; }
   invert =

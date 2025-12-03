@@ -48,73 +48,82 @@ let
       ]
     );
 
-  mkSyncService = remote: cfg: {
-    name = "rift-sync-${if cfg.name == null then (escapeUnitName remote) else cfg.name}";
-    value = {
-      description = "rift sync service";
-      after = [ "zfs.target" ];
-      path = [ pkgs.openssh ];
-      serviceConfig = {
-        LoadCredential = [ "ssh_key:${config.sops.secrets."rift/sync/key".path}" ];
-        User = "rift";
-        Group = "rift";
-        CacheDirectory = [ "rift" ];
-        CacheDirectoryMode = "700";
-        Type = "oneshot";
-        ExecStartPre = allow [ "send" ] cfg.datasets;
-        ExecStopPost = unallow [ "send" ] cfg.datasets;
-        ExecStart = map (mkSync cfg remote) cfg.datasets;
-        CPUWeight = 20;
-        CPUQuota = "75%";
-        BindPaths = [ "/dev/zfs" ];
-        DeviceAllow = [ "/dev/zfs" ];
-        CapabilityBoundingSet = "";
-        DevicePolicy = "closed";
-        DynamicUser = true;
-        LockPersonality = true;
-        MemoryDenyWriteExecute = true;
-        NoNewPrivileges = true;
-        PrivateDevices = true;
-        PrivateMounts = true;
-        PrivateNetwork = false;
-        PrivateTmp = true;
-        PrivateUsers = false;
-        ProtectClock = true;
-        ProtectControlGroups = true;
-        ProtectHome = true;
-        ProtectHostname = true;
-        ProtectKernelLogs = true;
-        ProtectKernelModules = true;
-        ProtectKernelTunables = true;
-        ProtectProc = "invisible";
-        ProtectSystem = "strict";
-        RestrictAddressFamilies = [
-          "AF_UNIX"
-          "AF_INET"
-          "AF_INET6"
-        ];
-        RestrictNamespaces = true;
-        RestrictRealtime = true;
-        RestrictSUIDSGID = true;
-        SystemCallArchitectures = "native";
-        SystemCallFilter = [
-          " " # This is needed to clear the SystemCallFilter existing definitions
-          "~@reboot"
-          "~@swap"
-          "~@obsolete"
-          "~@mount"
-          "~@module"
-          "~@debug"
-          "~@cpu-emulation"
-          "~@clock"
-          "~@raw-io"
-          "~@privileged"
-          "~@resources"
-        ];
-        UMask = 0077;
+  mkSyncService =
+    remote: cfg:
+    let
+      untitName = "rift-sync-${if cfg.name == null then (escapeUnitName remote) else cfg.name}";
+    in
+    {
+      name = untitName;
+      value = {
+        description = "rift sync service";
+        after = [ "zfs.target" ];
+        path = [ pkgs.openssh ];
+        serviceConfig = {
+          LoadCredential = [ "ssh_key:${config.sops.secrets."rift/sync/key".path}" ];
+          User = "rift";
+          Group = "rift";
+          StateDirectory = [ "rift" ];
+          StateDirectoryMode = "700";
+          CacheDirectory = [ "rift" ];
+          CacheDirectoryMode = "700";
+          RuntimeDirectory = [ "rift/${untitName}" ];
+          RuntimeDirectoryMode = "700";
+          Type = "oneshot";
+          ExecStartPre = allow [ "send" ] cfg.datasets;
+          ExecStopPost = unallow [ "send" ] cfg.datasets;
+          ExecStart = map (mkSync cfg remote) cfg.datasets;
+          CPUWeight = 20;
+          CPUQuota = "75%";
+          BindPaths = [ "/dev/zfs" ];
+          DeviceAllow = [ "/dev/zfs" ];
+          CapabilityBoundingSet = "";
+          DevicePolicy = "closed";
+          DynamicUser = true;
+          LockPersonality = true;
+          MemoryDenyWriteExecute = true;
+          NoNewPrivileges = true;
+          PrivateDevices = true;
+          PrivateMounts = true;
+          PrivateNetwork = false;
+          PrivateTmp = true;
+          PrivateUsers = false;
+          ProtectClock = true;
+          ProtectControlGroups = true;
+          ProtectHome = true;
+          ProtectHostname = true;
+          ProtectKernelLogs = true;
+          ProtectKernelModules = true;
+          ProtectKernelTunables = true;
+          ProtectProc = "invisible";
+          ProtectSystem = "strict";
+          RestrictAddressFamilies = [
+            "AF_UNIX"
+            "AF_INET"
+            "AF_INET6"
+          ];
+          RestrictNamespaces = true;
+          RestrictRealtime = true;
+          RestrictSUIDSGID = true;
+          SystemCallArchitectures = "native";
+          SystemCallFilter = [
+            " " # This is needed to clear the SystemCallFilter existing definitions
+            "~@reboot"
+            "~@swap"
+            "~@obsolete"
+            "~@mount"
+            "~@module"
+            "~@debug"
+            "~@cpu-emulation"
+            "~@clock"
+            "~@raw-io"
+            "~@privileged"
+            "~@resources"
+          ];
+          UMask = 0077;
+        };
       };
     };
-  };
 
   mkSyncTimer = remote: cfg: {
     name = "rift-sync-${if cfg.name == null then (escapeUnitName remote) else cfg.name}";

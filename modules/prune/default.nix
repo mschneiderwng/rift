@@ -28,6 +28,8 @@ let
     policy: join " " (lib.mapAttrsToList (tag: keep: "--keep ${toString keep} rift_.*_${tag}") policy);
 
   mkPrune = dataset: policy: "${rift}/bin/rift prune -v ${mkPolicy policy} ${dataset}";
+
+  attrKeys = attrs: lib.mapAttrsToList (name: value: name) attrs;
 in
 {
   options.services.rift.prune = {
@@ -51,6 +53,12 @@ in
       '';
     };
 
+    onFailure = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "systemd OnFailure= dependencies.";
+    };
+
     timerConfig = lib.mkOption {
       type = lib.types.attrs;
       default = {
@@ -60,10 +68,17 @@ in
       };
       description = "Systemd timer configuration";
     };
+
+    serviceConfig = lib.mkOption {
+      type = lib.types.attrs;
+      default = { };
+      description = "systemd service configuration";
+    };
+
   };
 
   config = lib.mkIf cfg.enable {
-    ash.services.notify-email.enable = true;
+
 
     environment.systemPackages = with pkgs; [ rift ];
 
@@ -74,14 +89,18 @@ in
 
     systemd.services."rift-prune" = {
       description = "rift prune service";
-      onFailure = [ "notify-email@%n.service" ];
+      onFailure = cfg.onFailure;
       after = [ "zfs.target" ];
       serviceConfig = {
         User = "rift";
         Group = "rift";
+        StateDirectory = [ "rift" ];
+        StateDirectoryMode = "700";
+        CacheDirectory = [ "rift" ];
+        CacheDirectoryMode = "700";
+        RuntimeDirectory = [ "rift/rift-prune" ];
+        RuntimeDirectoryMode = "700";
         Type = "oneshot";
-        RuntimeDirectory = "rift";
-        CacheDirectory = "rift";
         ExecStartPre = allow [ "destroy" "mount" ] (builtins.attrNames cfg.datasets);
         ExecStopPost = unallow [ "destroy" "mount" ] (builtins.attrNames cfg.datasets);
         ExecStart = lib.mapAttrsToList mkPrune cfg.datasets;
@@ -129,7 +148,8 @@ in
           "~@resources"
         ];
         UMask = 0077;
-      };
+      }
+      // cfg.serviceConfig;
     };
   };
 }
