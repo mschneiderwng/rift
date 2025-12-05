@@ -344,6 +344,22 @@ def test_stream_size():
     size = ZfsStream(("zfs", "send", "..."), runner).size()
     assert_that(size, equal_to("12.6G"))
 
+def test_stream_size_resume():
+    runner = RunnerMock(
+        returns="""resume token contents:
+                nvlist version: 0
+                        object = 0x72a
+                        offset = 0x5f80000
+                        bytes = 0x90c3f2184
+                        toguid = 0xc7442ab399a28a9b
+                        toname = rpool@rift_2025-12-05_07:36:58_weekly
+                        compressok = 1
+                        rawok = 1
+                full send of rpool@rift_2025-12-05_07:36:58_weekly estimated size is 158G
+                total estimated size is 158G"""
+    )
+    size = ZfsStream(("zfs", "send", "..."), runner).size()
+    assert_that(size, equal_to("158G"))
 
 def test_destroy_none():
     runner = RunnerMock()

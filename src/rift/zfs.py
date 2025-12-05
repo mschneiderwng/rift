@@ -29,9 +29,10 @@ class ZfsStream(Stream):
         log.debug("getting estimate of snapshot (stream) size")
         # get size estimate by running the command in --dry-run mode and parsing output
         output = self.runner.run(self.args + ("-n", "-v"))
-        m = re.match(r".*\ntotal estimated size is (.+)$", output, re.MULTILINE)
+        lines = output.split('\n')
+        m = re.match(r"total estimated size is (.+)$", lines[-1].strip())
         if not m:
-            raise RuntimeError(f"cannot parse size form output '{output}'")
+            raise RuntimeError(f"cannot parse size form output '{lines[-1].strip()}'")
         return m.group(1)
 
 
