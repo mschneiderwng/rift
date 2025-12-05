@@ -17,17 +17,21 @@ let
     );
 
   mkPermissions =
-    action: permissions: dataset:
+    action: user: permissions: dataset:
     lib.escapeShellArgs [
       "-+/run/booted-system/sw/bin/zfs"
       action
-      "rift"
+      user
       (lib.concatStringsSep "," permissions)
       dataset
     ];
 
-  allow = perm: datasets: (map (mkPermissions "allow" perm) datasets);
-  unallow = permissions: datasets: (map (mkPermissions "unallow" permissions) datasets);
+  allow =
+    user: perm: datasets:
+    (map (mkPermissions "allow" user perm) datasets);
+  unallow =
+    user: permissions: datasets:
+    (map (mkPermissions "unallow" user permissions) datasets);
 
   mkSync =
     cfg: remote: dataset:
@@ -55,27 +59,28 @@ let
   mkSyncService =
     remote: cfg:
     let
-      untitName = "rift-sync-${if cfg.name == null then (escapeUnitName remote) else cfg.name}";
+      unitName = "rift-sync-${if cfg.name == null then (escapeUnitName remote) else cfg.name}";
+      user = unitName;
     in
     {
-      name = untitName;
+      name = unitName;
       value = {
         description = "rift sync service";
         after = [ "zfs.target" ];
         path = [ pkgs.openssh ];
         serviceConfig = {
           LoadCredential = [ "ssh_key:${cfg.sshPrivateKey}" ];
-          User = "rift";
-          Group = "rift";
+          User = user;
+          Group = user;
           StateDirectory = [ "rift" ];
           StateDirectoryMode = "700";
           CacheDirectory = [ "rift" ];
           CacheDirectoryMode = "700";
-          RuntimeDirectory = [ "rift/${untitName}" ];
+          RuntimeDirectory = [ "rift" ];
           RuntimeDirectoryMode = "700";
           Type = "oneshot";
-          ExecStartPre = allow [ "send" ] cfg.datasets;
-          ExecStopPost = unallow [ "send" ] cfg.datasets;
+          ExecStartPre = allow user [ "send" ] cfg.datasets;
+          ExecStopPost = unallow user [ "send" ] cfg.datasets;
           ExecStart = map (mkSync cfg remote) cfg.datasets;
           CPUWeight = 20;
           CPUQuota = "75%";
@@ -184,7 +189,7 @@ in
             filter = lib.mkOption {
               type = lib.types.str;
               description = ''A regex matching the snapshots to be sent.'';
-              default = ''"rift_.*_.*(?<!frequently)$"''; # all but frequently
+              default = ''rift_.*_.*(?<!frequently)$''; # all but frequently
             };
 
             bwlimit = lib.mkOption {

@@ -10,17 +10,21 @@ let
   rift = "${self.packages.${pkgs.system}.rift}";
 
   mkPermissions =
-    action: permissions: dataset:
+    action: user: permissions: dataset:
     lib.escapeShellArgs [
       "-+/run/booted-system/sw/bin/zfs"
       action
-      "rift"
+      user
       (lib.concatStringsSep "," permissions)
       dataset
     ];
 
-  allow = perm: datasets: (map (mkPermissions "allow" perm) datasets);
-  unallow = permissions: datasets: (map (mkPermissions "unallow" permissions) datasets);
+  allow =
+    user: perm: datasets:
+    (map (mkPermissions "allow" user perm) datasets);
+  unallow =
+    user: permissions: datasets:
+    (map (mkPermissions "unallow" user permissions) datasets);
 
   mkPolicy =
     policy:
@@ -106,69 +110,75 @@ in
       timerConfig = cfg.timerConfig;
     };
 
-    systemd.services."rift-prune" = {
-      description = "rift prune service";
-      onFailure = cfg.onFailure;
-      after = [ "zfs.target" ];
-      serviceConfig = {
-        User = "rift";
-        Group = "rift";
-        StateDirectory = [ "rift" ];
-        StateDirectoryMode = "700";
-        CacheDirectory = [ "rift" ];
-        CacheDirectoryMode = "700";
-        RuntimeDirectory = [ "rift/rift-prune" ];
-        RuntimeDirectoryMode = "700";
-        Type = "oneshot";
-        ExecStartPre = allow [ "destroy" "mount" ] (builtins.attrNames cfg.datasets);
-        ExecStopPost = unallow [ "destroy" "mount" ] (builtins.attrNames cfg.datasets);
-        ExecStart = lib.mapAttrsToList mkPrune cfg.datasets;
-        CPUWeight = 20;
-        CPUQuota = "75%";
-        BindPaths = [ "/dev/zfs" ];
-        DeviceAllow = [ "/dev/zfs" ];
-        CapabilityBoundingSet = "";
-        DevicePolicy = "closed";
-        DynamicUser = true;
-        LockPersonality = true;
-        MemoryDenyWriteExecute = true;
-        NoNewPrivileges = true;
-        PrivateDevices = true;
-        PrivateMounts = true;
-        PrivateNetwork = true;
-        PrivateTmp = true;
-        PrivateUsers = false;
-        ProtectClock = true;
-        ProtectControlGroups = true;
-        ProtectHome = true;
-        ProtectHostname = true;
-        ProtectKernelLogs = true;
-        ProtectKernelModules = true;
-        ProtectKernelTunables = true;
-        ProtectProc = "invisible";
-        ProtectSystem = "strict";
-        RestrictAddressFamilies = [ "none" ];
-        RestrictNamespaces = true;
-        RestrictRealtime = true;
-        RestrictSUIDSGID = true;
-        SystemCallArchitectures = "native";
-        SystemCallFilter = [
-          " " # This is needed to clear the SystemCallFilter existing definitions
-          "~@reboot"
-          "~@swap"
-          "~@obsolete"
-          "~@mount"
-          "~@module"
-          "~@debug"
-          "~@cpu-emulation"
-          "~@clock"
-          "~@raw-io"
-          "~@privileged"
-          "~@resources"
-        ];
-        UMask = 0077;
-      }
-      // cfg.serviceConfig;
-    };
+    systemd.services."rift-prune" =
+      let
+
+        unitName = "rift-prune";
+        user = unitName;
+      in
+      {
+        description = "rift prune service";
+        onFailure = cfg.onFailure;
+        after = [ "zfs.target" ];
+        serviceConfig = {
+          User = user;
+          Group = user;
+          StateDirectory = [ "rift" ];
+          StateDirectoryMode = "700";
+          CacheDirectory = [ "rift" ];
+          CacheDirectoryMode = "700";
+          RuntimeDirectory = [ "rift" ];
+          RuntimeDirectoryMode = "700";
+          Type = "oneshot";
+          ExecStartPre = allow user [ "destroy" "mount" ] (builtins.attrNames cfg.datasets);
+          ExecStopPost = unallow user [ "destroy" "mount" ] (builtins.attrNames cfg.datasets);
+          ExecStart = lib.mapAttrsToList mkPrune cfg.datasets;
+          CPUWeight = 20;
+          CPUQuota = "75%";
+          BindPaths = [ "/dev/zfs" ];
+          DeviceAllow = [ "/dev/zfs" ];
+          CapabilityBoundingSet = "";
+          DevicePolicy = "closed";
+          DynamicUser = true;
+          LockPersonality = true;
+          MemoryDenyWriteExecute = true;
+          NoNewPrivileges = true;
+          PrivateDevices = true;
+          PrivateMounts = true;
+          PrivateNetwork = true;
+          PrivateTmp = true;
+          PrivateUsers = false;
+          ProtectClock = true;
+          ProtectControlGroups = true;
+          ProtectHome = true;
+          ProtectHostname = true;
+          ProtectKernelLogs = true;
+          ProtectKernelModules = true;
+          ProtectKernelTunables = true;
+          ProtectProc = "invisible";
+          ProtectSystem = "strict";
+          RestrictAddressFamilies = [ "none" ];
+          RestrictNamespaces = true;
+          RestrictRealtime = true;
+          RestrictSUIDSGID = true;
+          SystemCallArchitectures = "native";
+          SystemCallFilter = [
+            " " # This is needed to clear the SystemCallFilter existing definitions
+            "~@reboot"
+            "~@swap"
+            "~@obsolete"
+            "~@mount"
+            "~@module"
+            "~@debug"
+            "~@cpu-emulation"
+            "~@clock"
+            "~@raw-io"
+            "~@privileged"
+            "~@resources"
+          ];
+          UMask = 0077;
+        }
+        // cfg.serviceConfig;
+      };
   };
 }

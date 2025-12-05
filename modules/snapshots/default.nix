@@ -17,17 +17,21 @@ let
     );
 
   mkPermissions =
-    action: permissions: dataset:
+    action: user: permissions: dataset:
     lib.escapeShellArgs [
       "-+/run/booted-system/sw/bin/zfs"
       action
-      "rift"
+      user
       (lib.concatStringsSep "," permissions)
       dataset
     ];
 
-  allow = perm: datasets: (map (mkPermissions "allow" perm) datasets);
-  unallow = permissions: datasets: (map (mkPermissions "unallow" permissions) datasets);
+  allow =
+    user: perm: datasets:
+    (map (mkPermissions "allow" user perm) datasets);
+  unallow =
+    user: permissions: datasets:
+    (map (mkPermissions "unallow" user permissions) datasets);
 
   mkSnapshotTimer = schedule: timerConfig: {
     name = "rift-snapshot-${schedule}";
@@ -55,26 +59,27 @@ let
   mkSnapshotService =
     schedule: datasets:
     let
-      untitName = "rift-snapshot-${schedule}";
+      unitName = "rift-snapshot-${schedule}";
+      user = unitName;
     in
     {
-      name = untitName;
+      name = unitName;
       value = {
         description = "rift snapshot service";
         onFailure = cfg.onFailure;
         after = [ "zfs.target" ];
         serviceConfig = {
-          User = "rift";
-          Group = "rift";
+          User = user;
+          Group = user;
           StateDirectory = [ "rift" ];
           StateDirectoryMode = "700";
           CacheDirectory = [ "rift" ];
           CacheDirectoryMode = "700";
-          RuntimeDirectory = [ "rift/${untitName}" ];
+          RuntimeDirectory = [ "rift" ];
           RuntimeDirectoryMode = "700";
           Type = "oneshot";
-          ExecStartPre = allow [ "snapshot" "bookmark" ] datasets;
-          ExecStopPost = unallow [ "snapshot" "bookmark" ] datasets;
+          ExecStartPre = allow user [ "snapshot" "bookmark" ] datasets;
+          ExecStopPost = unallow user [ "snapshot" "bookmark" ] datasets;
           ExecStart = map (mkSnapshot schedule) datasets;
           CPUWeight = 20;
           CPUQuota = "75%";
