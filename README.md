@@ -39,13 +39,13 @@ be sent to the target. The default filter is `"rift.*"`.
     rift prune --keep 24 hourly --keep 4 rift_.*_weekly --keep 0 rift_.*_frequently src/data
 
 # Systemd
-I let `systemd` handle all the automation with the goal to give the least possible amount of permissions. 
+I let `systemd` handle all the automation with the goal to give the units the least possible amount of permissions. 
 - One service that creates snapshots (more precisely a service template which runs hourly, daily, ...).
 - One service that purges snapshots.
 - One service that sends snapshots to a remote.
     - This service assumes there is a user `rift-recv` at the remote with the zfs permissions `create,receive,mount`. That way, it is not possible to destroy backups remotely. Snapshots on the remote should be pruned with its own locally running service.
 
-`nix` is used a configuration language which creates the services and timers. An example for the created units can be seen in the following.
+`nix` is used a configuration language which creates the services and timers. The modules I created are available in the repository and their usage looks like in the following example:
 
     {
     lib,
@@ -68,6 +68,7 @@ I let `systemd` handle all the automation with the goal to give the least possib
             frequently = 48 * 60 / 15;
             hourly = 24;
             daily = 30;
+            weekly = 52;
             monthly = 12;
             yearly = 0;
         };
@@ -82,35 +83,42 @@ I let `systemd` handle all the automation with the goal to give the least possib
 
     in
     {
-        ash.services.notify-email.enable = true;
-        ash.programs.sops.enable = true;
+        # enable my onFailure units
+        ash.services.notify-email.enable = true; 
 
+        # my private key for remote sync is stored in sops
+        ash.programs.sops.enable = true;         
         sops.secrets."rift/sync/key" = { };
 
+        # use the same schedule for all datasets
         services.rift.snapshots = {
             enable = true;
             onFailure = [ "notify-email@%n.service" ];
             datasets = mapToAttr schedule datasets;
         };
 
+        # use the same "shortterm" retention policy for all snapshots
         services.rift.prune = {
             enable = true;
             onFailure = [ "notify-email@%n.service" ];
             datasets = mapToAttr shortterm datasets;
         };
 
+        # ssh need the remote public key
         services.openssh.knownHosts = {
             nas.publicKey = "ssh-ed25519 AAAAC3...";
         };
 
+        # sync all snaphots to nas (excluding frequently snapshots)
         services.rift.sync = {
             enable = true;
             remotes = {
-            "rift-recv@nas:spool/backups/yoga" = {
-                name = "nas";
-                sshPrivateKey = config.sops.secrets."rift/sync/key".path;
-                datasets = datasets;
-            };
+                "rift-recv@nas:spool/backups/yoga" = {
+                    name = "nas";
+                    sshPrivateKey = config.sops.secrets."rift/sync/key".path;
+                    filter = ''rift_.*_.*(?<!frequently)$''; # all but frequently;
+                    datasets = datasets;
+                };
             };
         };
     }
