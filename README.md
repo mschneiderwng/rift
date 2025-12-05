@@ -9,34 +9,37 @@ I wanted a zfs replication tool which consists of many dedicate very small progr
 ## Send individual snapshots
 `rift send` automatically detects if a snapshot needs to be sent as full, incremental or can be resumed. It also
 supports incremental send from bookmarks.
-    
-    rift send src/data@snap1 user@remote:back/src/data             # push
-    rift send user@remote:src/data@snap1 back/src/data             # pull
-    rift send user@remote:src/data@snap1 user@remote:back/src/data # broker
-    rift send src/data@snap1 back/src/data                         # local copy
-
+```bash
+rift send src/data@snap1 user@remote:back/src/data             # push
+rift send user@remote:src/data@snap1 back/src/data             # pull
+rift send user@remote:src/data@snap1 user@remote:back/src/data # broker
+rift send src/data@snap1 back/src/data                         # local copy
+```
 ### Flags
 Bandwidth limits needs `mbuffer` installed. The quantity passed to `--bwlimit` is forwarded to `mbuffer -r`.
-
-    rift send src/data@snap1 user@remote:back/src/data --bwlimit 1M
-
+```bash
+rift send src/data@snap1 user@remote:back/src/data --bwlimit 1M
+```
 ## Send all newer snapshots (sync)
 `rift sync` has the same push/pull/local modes as `rift send`. It builds a list of snapshots from the source which are
 newer than the newest snapshot on the target. This list is then iterated by `rift send`.
-
-    rift sync src/data user@remote:back/src/data
-
+```bash
+rift sync src/data user@remote:back/src/data
+```
 ### Flags
 The list of snapshots to be sent can be filtered by a regular expression. Only snapshots that match the regex will
 be sent to the target. The default filter is `"rift.*"`.
-
-    rift sync src/data user@remote:back/src/data --filter "rift_.*_.*(?<!frequently)$"
-
+```bash
+rift sync src/data user@remote:back/src/data --filter "rift_.*_.*(?<!frequently)$"
+```
 ## Create snapshot
-    rift snapshot --tag weekly src/data 
-
+```bash
+rift snapshot --tag weekly src/data 
+```
 ## Destroy old snapshots
-    rift prune --keep 24 hourly --keep 4 rift_.*_weekly --keep 0 rift_.*_frequently src/data
+```bash
+rift prune --keep 24 hourly --keep 4 rift_.*_weekly --keep 0 rift_.*_frequently src/data
+```
 
 # Systemd
 I let `systemd` handle all the automation with the goal to give the units the least possible amount of permissions. 
@@ -47,12 +50,13 @@ I let `systemd` handle all the automation with the goal to give the units the le
 
 `nix` is used a configuration language which creates the services and timers. The modules I created are available in the repository and their usage looks like in the following example:
 
+```nix
     {
-    lib,
-    pkgs, 
-    inputs,
-    config,
-    ...
+        lib,
+        pkgs, 
+        inputs,
+        config,
+        ...
     }:
     let
         schedule = [
@@ -122,3 +126,4 @@ I let `systemd` handle all the automation with the goal to give the units the le
             };
         };
     }
+```
