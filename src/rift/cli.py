@@ -236,8 +236,14 @@ def sync(source, target, regex, pipes, source_ssh_options, target_ssh_options, d
     default=True,
     help="Also create bookmark of snapshot (default: True).",
 )
+@click.option(
+    "--ssh-options",
+    "-s",
+    multiple=True,
+    help='Ssh options like -o "Compression=yes" for source. Can be used multiple times.',
+)
 @verbose_option()
-def snapshot(dataset, name, tag, timestamp, bookmark, verbose):
+def snapshot(dataset, name, tag, timestamp, bookmark, ssh_options, verbose):
     configure_logging(verbose)
     with error_handler():
         ts = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
@@ -245,7 +251,8 @@ def snapshot(dataset, name, tag, timestamp, bookmark, verbose):
         name = f"{name}_{quote(tag)}" if tag is not None else name
 
         # parse dataset
-        remote, path = dataset
+        host, path = dataset
+        remote = None if host is None else Remote(host, ssh_options)
         dataset: Dataset = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
 
         # create snapshot
