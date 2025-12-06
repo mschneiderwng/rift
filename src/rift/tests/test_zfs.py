@@ -339,10 +339,11 @@ def test_resume_token_cache():
 
 def test_stream_size():
     runner = RunnerMock(
-        returns="send from source/A@rift_2025-10-11_10:42:52_weekly to source/A@rift_2025-10-11_12:40:19_weekly estimated size is 12.6G\ntotal estimated size is 12.6G"
+        returns="""full    rpool@rift_2025-12-06_05:15:04_frequently       3711767360
+                   size    3711767360"""
     )
     size = ZfsStream(("zfs", "send", "..."), runner).size()
-    assert_that(size, equal_to("12.6G"))
+    assert_that(size, equal_to(3711767360))
 
 
 def test_stream_size_resume():
@@ -356,11 +357,11 @@ def test_stream_size_resume():
                         toname = rpool@rift_2025-12-05_07:36:58_weekly
                         compressok = 1
                         rawok = 1
-                full send of rpool@rift_2025-12-05_07:36:58_weekly estimated size is 158G
-                total estimated size is 158G"""
+                full    rpool@rift_2025-12-06_05:15:04_frequently       3711767360
+                size    3711767360"""
     )
     size = ZfsStream(("zfs", "send", "..."), runner).size()
-    assert_that(size, equal_to("158G"))
+    assert_that(size, equal_to(3711767360))
 
 
 def test_destroy_none():
