@@ -16,6 +16,8 @@ from rift.datasets import Dataset, Remote
 from rift.snapshots import Bookmark, Snapshot
 from rift.zfs import ZfsBackend
 
+runner = SystemRunner()
+
 
 def configure_logging(verbosity):
     """Set up structlog + stdlib logging based on verbosity count."""
@@ -144,21 +146,35 @@ def main():
 @click.argument("source", type=SNAPSHOT_TYPE)
 @click.argument("target", type=DATASET_TYPE)
 @click.option("--pipes", "-p", type=str, multiple=True, help="Command which zfs send should pipe to before zfs recv.")
+@click.option(
+    "--source-ssh-options",
+    "-s",
+    multiple=True,
+    help='Ssh options like -o "Compression=yes" for source. Can be used multiple times.',
+)
+@click.option(
+    "--target-ssh-options",
+    "-t",
+    multiple=True,
+    help='Ssh options like -o "Compression=yes" for target. Can be used multiple times.',
+)
 @dry_run_option()
 @verbose_option()
-def send(source, target, pipes, dry_run, verbose):
+def send(source, target, pipes, source_ssh_options, target_ssh_options, dry_run, verbose):
     configure_logging(verbose)
     with error_handler():
         # parse source
-        remote, path, snapshot_name = source
-        source = Dataset(ZfsBackend(path=path, remote=remote, runner=SystemRunner()))
+        host, path, snapshot_name = source
+        remote = None if host is None else Remote(host, source_ssh_options)
+        source = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
 
         # find snapshot by name
         snapshot = source.find(snapshot_name)
 
         # parse target
-        remote, path = target
-        target = Dataset(ZfsBackend(path=path, remote=remote, runner=SystemRunner()))
+        host, path = target
+        remote = None if host is None else Remote(host, target_ssh_options)
+        target = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
 
         pipes: list[tuple[str]] = [tuple(p.split(" ")) for p in pipes]
         return rift.datasets.send(snapshot, source, target, pipes=pipes, dry_run=dry_run)
@@ -195,12 +211,12 @@ def sync(source, target, regex, pipes, source_ssh_options, target_ssh_options, d
         # parse source
         host, path = source
         remote = None if host is None else Remote(host, source_ssh_options)
-        source = Dataset(ZfsBackend(path=path, remote=remote, runner=SystemRunner()))
+        source = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
 
         # parse target
         host, path = target
         remote = None if host is None else Remote(host, target_ssh_options)
-        target = Dataset(ZfsBackend(path=path, remote=remote, runner=SystemRunner()))
+        target = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
 
         pipes: list[tuple[str]] = [tuple(p.split(" ")) for p in pipes]
         rift.datasets.sync(source, target, regex=regex, pipes=pipes, dry_run=dry_run)
@@ -230,7 +246,7 @@ def snapshot(dataset, name, tag, timestamp, bookmark, verbose):
 
         # parse dataset
         remote, path = dataset
-        dataset: Dataset = Dataset(ZfsBackend(path=path, remote=remote, runner=SystemRunner()))
+        dataset: Dataset = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
 
         # create snapshot
         dataset.snapshot(name)
@@ -257,7 +273,7 @@ def list_snapshots(dataset, regex, snapshots, bookmarks, verbose):
     with error_handler():
         # parse dataset
         remote, path = dataset
-        dataset: Dataset = Dataset(ZfsBackend(path=path, remote=remote, runner=SystemRunner()))
+        dataset: Dataset = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
         result = (dataset.snapshots() if snapshots else ()) + (dataset.bookmarks() if bookmarks else ())
 
         p = re.compile(regex)
@@ -283,7 +299,7 @@ def prune(dataset, keep, dry_run, verbose):
     with error_handler():
         # parse dataset
         remote, path = dataset
-        dataset: Dataset = Dataset(ZfsBackend(path=path, remote=remote, runner=SystemRunner()))
+        dataset: Dataset = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
 
         policy = {regex: count for count, regex in keep}
         rift.datasets.prune(dataset=dataset, policy=policy, dry_run=dry_run)
