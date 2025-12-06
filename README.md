@@ -225,3 +225,18 @@ The modules I created are available in the repository and their usage looks like
         };
     }
 ```
+
+# Installation
+
+nix can run rift without installation via `nix run github:mschneiderwng/rift -- --help`. Alternatively install the python application with `uv`. The nixos module is exported and can be included in a flake as in the following example:
+
+```
+  inputs = {
+    ...
+    rift.url = "github:mschneiderwng/rift";
+    ...
+  };
+  outputs = ...
+    # incldue this in your modules:
+    rift.nixosModules.rift
+```
