@@ -232,11 +232,12 @@ def sync(source, target, regex, pipes, source_ssh_options, target_ssh_options, d
     multiple=True,
     help='Ssh options like -o "Compression=yes" for source. Can be used multiple times.',
 )
+@click.option("--time-format", default="%Y-%m-%d_%H:%M:%S", help="Format for timestamp (default: '%Y-%m-%d_%H:%M:%S').")
 @verbose_option()
-def snapshot(dataset, name, bookmark, ssh_options, verbose):
+def snapshot(dataset, name, bookmark, ssh_options, time_format, verbose):
     configure_logging(verbose)
     with error_handler():
-        ts = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+        ts = datetime.now().strftime(time_format)
         name = name.format(datetime=ts)
 
         # parse dataset
