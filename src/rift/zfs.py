@@ -118,7 +118,7 @@ class ZfsBackend(Backend):
         self,
         stream: Stream,
         *,
-        recv_options: tuple[str, ...] = ("-s", "-u"),
+        recv_options: tuple[str, ...] = ("-s", "-u", "-F"),
         pipes: Sequence[tuple[str, ...]] = (),
         dry_run: bool,
     ) -> None:

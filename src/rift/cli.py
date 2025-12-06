@@ -154,7 +154,7 @@ def main(max_content_width=180):
     "--zfs-recv_option",
     "-R",
     "zfs_recv_options",
-    default=("-s", "-u"),
+    default=("-s", "-u", "-F"),
     multiple=True,
     help="Options passed to zfs recv. Can be used multiple times.",
 )
@@ -249,7 +249,7 @@ def send(
     "--zfs-recv_option",
     "-R",
     "zfs_recv_options",
-    default=("-s", "-u"),
+    default=("-s", "-u", "-F"),
     multiple=True,
     help="Options passed to zfs recv. Can be used multiple times.",
 )

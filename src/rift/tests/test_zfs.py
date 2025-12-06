@@ -296,7 +296,7 @@ def test_recv():
     dataset.recv(ZfsStream(("zfs", "send", "..."), runner), dry_run=False)
     assert_that(
         runner.recorded,
-        equal_to([("zfs", "send", "..."), ("zfs", "receive", "-s", "-u", "source/A")]),
+        equal_to([("zfs", "send", "..."), ("zfs", "receive", "-s", "-u", "-F", "source/A")]),
     )
 
 
