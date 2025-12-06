@@ -134,7 +134,7 @@ def error_handler():
 
 @click.group()
 @click.version_option()
-def main():
+def main(max_content_width=180):
     pass
 
 
@@ -146,17 +146,39 @@ def main():
     "--source-ssh-options",
     "-s",
     multiple=True,
-    help='Ssh options like -o "Compression=yes" for source. Can be used multiple times.',
+    help='ssh options like -o "Compression=yes" for source. Can be used multiple times.',
 )
 @click.option(
     "--target-ssh-options",
     "-t",
     multiple=True,
-    help='Ssh options like -o "Compression=yes" for target. Can be used multiple times.',
+    help='ssh options like -o "Compression=yes" for target. Can be used multiple times.',
 )
 @dry_run_option()
 @verbose_option()
 def send(source, target, pipes, source_ssh_options, target_ssh_options, dry_run, verbose):
+    """Send individual snapshots.
+
+    `rift send` automatically detects if a snapshot needs to be sent as full, incremental or can be resumed.
+    It also supports incremental send from bookmarks.
+
+    SOURCE the snapshot to be sent. Syntax is [user@remote:]src/data@snap
+
+    TARGET the dataset which receives the snapshot. Syntax is [user@remote:]target/data
+
+    Examples:
+
+    \b
+        rift send src/data@snap1 user@remote:back/src/data             # push
+        rift send user@remote:src/data@snap1 back/src/data             # pull
+        rift send user@remote:src/data@snap1 user@remote:back/src/data # broker
+        rift send src/data@snap1 back/src/data                         # local copy
+
+    \b
+        # Pipe to mbuffer and then to pv. The placeholder {size} will be replaced by the stream size in bytes.
+        # results in `zfs send ... | mbuffer -r 1M | pv -s 1271665 | zfs recv`
+        rift send src/data@snap1 user@remote:back/src/data -p "mbuffer -r 1M" -p "pv -s {size}"
+    """
     configure_logging(verbose)
     with error_handler():
         # parse source
@@ -191,17 +213,32 @@ def send(source, target, pipes, source_ssh_options, target_ssh_options, dry_run,
     "--source-ssh-options",
     "-s",
     multiple=True,
-    help='Ssh options like -o "Compression=yes" for source. Can be used multiple times.',
+    help='ssh options like -o "Compression=yes" for source. Can be used multiple times.',
 )
 @click.option(
     "--target-ssh-options",
     "-t",
     multiple=True,
-    help='Ssh options like -o "Compression=yes" for target. Can be used multiple times.',
+    help='ssh options like -o "Compression=yes" for target. Can be used multiple times.',
 )
 @dry_run_option()
 @verbose_option()
 def sync(source, target, regex, pipes, source_ssh_options, target_ssh_options, dry_run, verbose):
+    """ Send all newer snapshots (sync)
+
+    SOURCE the dataset which snapshots should be sent to the target. Syntax is [user@remote:]src/data
+
+    TARGET the dataset which receives the snapshot. Syntax is [user@remote:]target/data
+
+    `rift sync` has the same push/pull/local modes as `rift send`. It builds a list of snapshots from the source which
+    are newer than the newest snapshot on the target. This list is then iterated by `rift send`.
+
+    Examples:
+
+    \b
+        rift sync src/data user@remote:target/data # push
+        rift sync user@remote:src/data target/data # pull
+    """
     configure_logging(verbose)
     with error_handler():
         # parse source
@@ -224,17 +261,30 @@ def sync(source, target, regex, pipes, source_ssh_options, target_ssh_options, d
 @click.option(
     "--bookmark/--no-bookmark",
     default=True,
-    help="Also create bookmark of snapshot (default: True).",
+    help="Also create bookmark of snapshot (default: '--bookmark').",
 )
 @click.option(
     "--ssh-options",
     "-s",
     multiple=True,
-    help='Ssh options like -o "Compression=yes" for source. Can be used multiple times.',
+    help='ssh options like -o "Compression=yes". Can be used multiple times.',
 )
 @click.option("--time-format", default="%Y-%m-%d_%H:%M:%S", help="Format for timestamp (default: '%Y-%m-%d_%H:%M:%S').")
 @verbose_option()
 def snapshot(dataset, name, bookmark, ssh_options, time_format, verbose):
+    """ Create a snapshot (and bookmark where appropriate) for a dataset.
+
+    DATASET the dataset for which a snapshot should be created. Syntax is [user@remote:]src/data
+
+    The template {datetime} in the snapshot name will be replaced by the current date and time.
+
+    Examples:
+
+    \b
+        rift snapshot src/data --name rift_{datetime}_frequently
+        rift snapshot src/data --name rift_{datetime}_frequently --time-format "%Y-%m-%d_%H:%M:%S"
+        rift snapshot src/data --name rift_{datetime}_frequently --no-bookmark
+    """
     configure_logging(verbose)
     with error_handler():
         ts = datetime.now().strftime(time_format)
@@ -262,13 +312,34 @@ def snapshot(dataset, name, bookmark, ssh_options, time_format, verbose):
     type=(str, int),  # types for the 2 arguments
     help="Retention rule (e.g. '--keep rift_.*_hourly 24 --keep rift_.*_weekly 4')",
 )
+@click.option(
+    "--ssh-options",
+    "-s",
+    multiple=True,
+    help='ssh options like -o "Compression=yes". Can be used multiple times.',
+)
 @dry_run_option()
 @verbose_option()
-def prune(dataset, keep, dry_run, verbose):
+def prune(dataset, keep, ssh_options, dry_run, verbose):
+    """ Destroy snapshots according to a given retention rule.
+
+    DATASET the dataset whose snapshots should be destroyed. Syntax is [user@remote:]src/data
+
+    Retention rule policy it defined by a regex followed by an int specifying how many of the snapshots matching the
+    regex should be kept. It will never touch snapshots which are not matched.
+
+    Examples:
+
+    \b
+        rift prune --keep rift_.*_hourly 24 --keep rift_.*_weekly 4 src/data
+        rift prune --keep rift_.*_frequently 0 user@remote:src/data # destroy all frequently snapshots
+    """
     configure_logging(verbose)
     with error_handler():
+
         # parse dataset
-        remote, path = dataset
+        host, path = dataset
+        remote = None if host is None else Remote(host, ssh_options)
         dataset: Dataset = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
 
         policy = {regex: count for regex, count in keep}

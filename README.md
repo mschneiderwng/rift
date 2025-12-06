@@ -4,40 +4,134 @@ __Warning: This tool is not production ready!__
 
 I wanted a zfs replication tool which consists of many dedicate very small programs which do just as much as necessary with very few permissions. Especially, a compromised host should not be able to destroy backups on a remote. The goal is to have a well-tested small library where other tool can build upon.
 
+rift does not have timer. systemd does a much better job with its abilty to notify on failure, persist when a system is suspended, etc. It also does not have a configuration file. I use `nix` to configure the systemd units and timers. The nix module for rift is exported by this repositories flake.
+
 # Interface
 
 ## Send individual snapshots
-`rift send` automatically detects if a snapshot needs to be sent as full, incremental or can be resumed. It also
-supports incremental send from bookmarks.
 ```bash
-rift send src/data@snap1 user@remote:back/src/data             # push
-rift send user@remote:src/data@snap1 back/src/data             # pull
-rift send user@remote:src/data@snap1 user@remote:back/src/data # broker
-rift send src/data@snap1 back/src/data                         # local copy
-```
-## Send all newer snapshots (sync)
-`rift sync` has the same push/pull/local modes as `rift send`. It builds a list of snapshots from the source which are
-newer than the newest snapshot on the target. This list is then iterated by `rift send`.
-```bash
-rift sync src/data user@remote:back/src/data
+rift send --help
+Usage: rift send [OPTIONS] SOURCE TARGET
+
+  Send individual snapshots.
+
+  `rift send` automatically detects if a snapshot needs to be sent as full,
+  incremental or can be resumed. It also supports incremental send from
+  bookmarks.
+
+  SOURCE the snapshot to be sent. Syntax is [user@remote:]src/data@snap
+
+  TARGET the dataset which receives the snapshot. Syntax is
+  [user@remote:]target/data
+
+  Examples:
+
+      rift send src/data@snap1 user@remote:back/src/data             # push
+      rift send user@remote:src/data@snap1 back/src/data             # pull
+      rift send user@remote:src/data@snap1 user@remote:back/src/data # broker
+      rift send src/data@snap1 back/src/data                         # local copy
+
+      # Pipe to mbuffer and then to pv. The placeholder {size} will be replaced by the stream size in bytes.
+      # results in `zfs send ... | mbuffer -r 1M | pv -s 1271665 | zfs recv`
+      rift send src/data@snap1 user@remote:back/src/data -p "mbuffer -r 1M" -p "pv -s {size}"
+
+Options:
+  -p, --pipes TEXT               Command which zfs send should pipe to before zfs recv.
+  -s, --source-ssh-options TEXT  ssh options like -o "Compression=yes" for source. Can be used multiple times.
+  -t, --target-ssh-options TEXT  ssh options like -o "Compression=yes" for target. Can be used multiple times.
+  -n, --dry-run                  Dry run commands without making any changes.
+  -v, --verbose                  Increase verbosity (-v, -vv for more detail).
+  --help                         Show this message and exit.
 ```
 
-## Create snapshot
+## Send all newer snapshots (sync)
 ```bash
-rift snapshot --tag weekly src/data 
+rift sync --help
+Usage: rift sync [OPTIONS] SOURCE TARGET
+
+  Send all newer snapshots (sync)
+
+  SOURCE the dataset which snapshots should be sent to the target. Syntax is
+  [user@remote:]src/data
+
+  TARGET the dataset which receives the snapshot. Syntax is
+  [user@remote:]target/data
+
+  `rift sync` has the same push/pull/local modes as `rift send`. It builds a
+  list of snapshots from the source which are newer than the newest snapshot
+  on the target. This list is then iterated by `rift send`.
+
+  Examples:
+
+      rift sync src/data user@remote:target/data # push
+      rift sync user@remote:src/data target/data # pull
+
+Options:
+  -f, --filter TEXT              Sync only snapshots which match regex (default: 'rift.*').
+  -p, --pipes TEXT               Command which zfs send should pipe to before zfs recv.
+  -s, --source-ssh-options TEXT  ssh options like -o "Compression=yes" for source. Can be used multiple times.
+  -t, --target-ssh-options TEXT  ssh options like -o "Compression=yes" for target. Can be used multiple times.
+  -n, --dry-run                  Dry run commands without making any changes.
+  -v, --verbose                  Increase verbosity (-v, -vv for more detail).
+  --help                         Show this message and exit.
+```
+
+## Create snapshots
+```bash
+rift snapshot --help
+Usage: rift snapshot [OPTIONS] DATASET
+
+  Create a snapshot (and bookmark where appropriate) for a dataset.
+
+  DATASET the dataset for which a snapshot should be created. Syntax is
+  [user@remote:]src/data
+
+  The template {datetime} in the snapshot name will be replaced by the current
+  date and time.
+
+  Examples:
+
+      rift snapshot src/data --name rift_{datetime}_frequently
+      rift snapshot src/data --name rift_{datetime}_frequently --time-format "%Y-%m-%d_%H:%M:%S"
+      rift snapshot src/data --name rift_{datetime}_frequently --no-bookmark
+
+Options:
+  --name TEXT                 Snapshot name (default: 'rift_{datetime}').
+  --bookmark / --no-bookmark  Also create bookmark of snapshot (default: '--bookmark').
+  -s, --ssh-options TEXT      ssh options like -o "Compression=yes". Can be used multiple times.
+  --time-format TEXT          Format for timestamp (default: '%Y-%m-%d_%H:%M:%S').
+  -v, --verbose               Increase verbosity (-v, -vv for more detail).
+  --help                      Show this message and exit.
 ```
 
 ## Destroy old snapshots
 ```bash
-rift prune --keep rift_.*_hourly 24 --keep rift_.*_weekly 4 --keep rift_.*_frequently 0 src/data
+rift prune --help
+Usage: rift prune [OPTIONS] DATASET
+
+  Destroy snapshots according to a given retention rule.
+
+  DATASET the dataset whose snapshots should be destroyed. Syntax is
+  [user@remote:]src/data
+
+  Retention rule policy it defined by a regex followed by an int specifying
+  how many of the snapshots matching the regex should be kept. It will never
+  touch snapshots which are not matched.
+
+  Examples:
+
+      rift prune --keep rift_.*_hourly 24 --keep rift_.*_weekly 4 src/data
+      rift prune --keep rift_.*_frequently 0 user@remote:src/data # destroy all frequently snapshots
+
+Options:
+  --keep <TEXT INTEGER>...  Retention rule (e.g. '--keep rift_.*_hourly 24 --keep rift_.*_weekly 4')
+  -s, --ssh-options TEXT    ssh options like -o "Compression=yes". Can be used multiple times.
+  -n, --dry-run             Dry run commands without making any changes.
+  -v, --verbose             Increase verbosity (-v, -vv for more detail).
+  --help                    Show this message and exit.
 ```
 
-## Pipes
-It is possible to insert commands in between `zfs send` and `zfs recv` via `--pipes/-p`. This is supported for `rift send` and `rift sync`.
-```bash
-rift send src/data@snap1 user@remote:back/src/data -p "mbuffer -r 1M" -p "pv -s {size}"
-```
-The template `{size}` with be replaced by the stream size in byes.
+
 
 # Systemd
 I let `systemd` handle all the automation with the goal to give the units the least possible amount of permissions. 
@@ -46,7 +140,13 @@ I let `systemd` handle all the automation with the goal to give the units the le
 - One service that sends snapshots to a remote.
     - This service assumes there is a user `rift-recv` at the remote with the zfs permissions `create,receive,mount`. That way, it is not possible to destroy backups remotely. Snapshots on the remote should be pruned with its own locally running service.
 
-`nix` is used a configuration language which creates the services and timers. The modules I created are available in the repository and their usage looks like in the following example:
+`nix` is used a configuration language which creates the services and timers. The result are systemd units and timers:
+
+- [Example systemd (daily) snapshot unit](docs/rift-snapshot-daily.service)
+- [Example systemd prune unit](docs/rift-prune.service)
+- [Example systemd sync unit](docs/rift-sync-nas.service)
+
+The modules I created are available in the repository and their usage looks like in the following example:
 
 ```nix
     {
@@ -82,7 +182,6 @@ I let `systemd` handle all the automation with the goal to give the units the le
         ];
 
         mapToAttr = value: datasets: builtins.listToAttrs (map (name: { inherit name value; }) datasets);
-
     in
     {
         # enable my onFailure units
@@ -118,7 +217,7 @@ I let `systemd` handle all the automation with the goal to give the units the le
                 "rift-recv@nas:spool/backups/yoga" = {
                     name = "nas";
                     sshPrivateKey = config.sops.secrets."rift/sync/key".path;
-                    filter = ''rift_.*_.*(?<!frequently)$''; # all but frequently;
+                    filter = ''rift_.*_.*(?<!frequently)$''; # send all but frequently snaps
                     datasets = datasets;
                 };
             };
