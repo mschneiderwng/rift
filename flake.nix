@@ -75,7 +75,7 @@
             };
           };
 
-          python = pkgs.python312;
+          python = pkgs.python314;
 
           pyprojectOverrides = final: prev: {
             textual = prev.textual.overrideAttrs (old: {
