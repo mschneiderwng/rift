@@ -344,6 +344,7 @@ def test_stream_size():
     size = ZfsStream(("zfs", "send", "..."), runner).size()
     assert_that(size, equal_to("12.6G"))
 
+
 def test_stream_size_resume():
     runner = RunnerMock(
         returns="""resume token contents:
@@ -360,6 +361,7 @@ def test_stream_size_resume():
     )
     size = ZfsStream(("zfs", "send", "..."), runner).size()
     assert_that(size, equal_to("158G"))
+
 
 def test_destroy_none():
     runner = RunnerMock()
