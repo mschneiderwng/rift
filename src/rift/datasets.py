@@ -1,6 +1,6 @@
 import re
 from operator import attrgetter
-from typing import Iterable, Optional, Sequence
+from typing import Collection, Optional, Sequence
 
 import structlog
 from attrs import define, frozen
@@ -87,7 +87,7 @@ class Backend:
         """Returns a resume token of a previously interrupted recv"""
         raise NotImplementedError
 
-    def destroy(self, snapshots: Iterable[str], dry_run: bool) -> None:
+    def destroy(self, snapshots: Collection[str], dry_run: bool) -> None:
         """Consume a stream to produce a snapshot on the target (self)"""
         raise NotImplementedError
 
@@ -159,7 +159,7 @@ class Dataset:
         """Returns a resume token of a previously interrupted recv"""
         return self.backend.resume_token()
 
-    def destroy(self, snapshots: Iterable[str], dry_run: bool) -> None:
+    def destroy(self, snapshots: Collection[str], dry_run: bool) -> None:
         """Consume a stream to produce a snapshot on the target (self)"""
         return self.backend.destroy(snapshots, dry_run=dry_run)
 

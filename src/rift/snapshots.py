@@ -15,7 +15,7 @@ class Snapshot:
         return Snapshot(parts[0], parts[1], int(parts[2]))
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self.fqn.split("@")[1]
 
 
@@ -31,5 +31,5 @@ class Bookmark:
         return Bookmark(parts[0], parts[1], int(parts[2]))
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self.fqn.split("#")[1]
