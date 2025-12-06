@@ -134,6 +134,49 @@ def test_send():
     )
 
 
+def test_send_zfs_options():
+    runner = CliRunner(catch_exceptions=False)
+
+    rift.cli.runner = RunnerMock(
+        returns=[
+            "rpool@rift_2025-12-06_06:15:10_frequently      372815780617067482      1337733",
+            "",
+            None,
+            "",
+            "full    rpool@rift_2025-12-06_05:15:04_frequently       3711767360\nsize    3711767360",
+        ],
+    )
+
+    result = runner.invoke(
+        send,
+        [
+            "rpool@rift_2025-12-06_06:15:10_frequently",
+            "user@remote:backup/rpool",
+            "-S",
+            "--my-send-option",
+            "-R",
+            "--my-recv-option",
+        ],
+    )
+
+    if result.stderr.strip():
+        raise RuntimeError(result.stderr)
+
+    assert_that(
+        rift.cli.runner.recorded,
+        equal_to(
+            [
+                "zfs list -pHt snapshot -o name,guid,createtxg rpool",
+                "ssh user@remote -- zfs list -pHt snapshot -o name,guid,createtxg backup/rpool",
+                "ssh user@remote -- zfs get -H -o value receive_resume_token backup/rpool",
+                "zfs list -pHt bookmark -o name,guid,createtxg rpool",
+                "zfs send --my-send-option rpool@rift_2025-12-06_06:15:10_frequently -P -n -v",
+                "zfs send --my-send-option rpool@rift_2025-12-06_06:15:10_frequently | ssh user@remote -- zfs receive --my-recv-option backup/rpool",
+            ]
+        ),
+    )
+
+
 def test_sync():
     runner = CliRunner(catch_exceptions=False)
 
