@@ -205,7 +205,7 @@ The modules I created are available in the repository and their usage looks like
             datasets = mapToAttr shortterm datasets;
         };
 
-        # ssh need the remote public key
+        # ssh needs the remote public key
         services.openssh.knownHosts = {
             nas.publicKey = "ssh-ed25519 AAAAC3...";
         };
@@ -216,9 +216,10 @@ The modules I created are available in the repository and their usage looks like
             remotes = {
                 "rift-recv@nas:spool/backups/yoga" = {
                     name = "nas";
+                    datasets = datasets;
                     sshPrivateKey = config.sops.secrets."rift/sync/key".path;
                     filter = ''rift_.*_.*(?<!frequently)$''; # send all but frequently snaps
-                    datasets = datasets;
+                    pipes = [ "pv -p -e -t -r -a -b -s {size}" ];
                 };
             };
         };
