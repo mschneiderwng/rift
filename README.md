@@ -2,7 +2,7 @@
 
 __Warning: This tool is not production ready!__
 
-I wanted a zfs replication tool which consists of many dedicate very small programs which do just as much as necessary with very few permissions. Especially, a compromised host should not be able to destroy backups on a remote.
+I wanted a zfs replication tool which consists of many dedicate very small programs which do just as much as necessary with very few permissions. Especially, a compromised host should not be able to destroy backups on a remote. The goal is to have a well-tested small library where other tool can build upon.
 
 # Interface
 
@@ -15,25 +15,29 @@ rift send user@remote:src/data@snap1 back/src/data             # pull
 rift send user@remote:src/data@snap1 user@remote:back/src/data # broker
 rift send src/data@snap1 back/src/data                         # local copy
 ```
-### Pipes
-It is possible to insert commands in between `zfs send` and `zfs recv` via `--pipes/-p`. 
-```bash
-rift send src/data@snap1 user@remote:back/src/data -p "mbuffer -r 1M" -p "pv"
-```
 ## Send all newer snapshots (sync)
 `rift sync` has the same push/pull/local modes as `rift send`. It builds a list of snapshots from the source which are
 newer than the newest snapshot on the target. This list is then iterated by `rift send`.
 ```bash
 rift sync src/data user@remote:back/src/data
 ```
+
 ## Create snapshot
 ```bash
 rift snapshot --tag weekly src/data 
 ```
+
 ## Destroy old snapshots
 ```bash
 rift prune --keep rift_.*_hourly 24 --keep rift_.*_weekly 4 --keep rift_.*_frequently 0 src/data
 ```
+
+## Pipes
+It is possible to insert commands in between `zfs send` and `zfs recv` via `--pipes/-p`. This is supported for `rift send` and `rift sync`.
+```bash
+rift send src/data@snap1 user@remote:back/src/data -p "mbuffer -r 1M" -p "pv -s {size}"
+```
+The template `{size}` with be replaced by the stream size in byes.
 
 # Systemd
 I let `systemd` handle all the automation with the goal to give the units the least possible amount of permissions. 

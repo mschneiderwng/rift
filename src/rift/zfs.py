@@ -18,10 +18,14 @@ def ssh(remote: Optional[Remote]) -> tuple[str, ...]:
     return ("ssh", remote.host) + sum((("-o", o) for o in remote.options), ()) + ("--",)
 
 
-@frozen
+@frozen(slots=False)
 class ZfsStream(Stream):
     args: tuple[str, ...]
     runner: Runner
+
+    def __attrs_post_init__(self):
+        # instance based caches since the @cache decorator operates on classes.
+        object.__setattr__(self, "size", cache(self.size))
 
     def size(self) -> int:
         """Returns the estimated size of the stream in bytes"""
@@ -110,6 +114,8 @@ class ZfsBackend(Backend):
         assert isinstance(stream, ZfsStream), f"do not know how to recv {stream}"
         self.cache_clear()
         args = ssh(self.remote) + ("zfs", "receive", "-s", "-u", self.path) + (("-n", "-v") if dry_run else ())
+        # replace templates
+        pipes = [tuple(map(lambda arg: arg.format(size=stream.size()),pipe)) for pipe in pipes]
         self.runner.run(stream.args, *pipes, args)
 
     def resume_token(self) -> Optional[str]:

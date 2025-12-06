@@ -184,7 +184,7 @@ def test_send_pipes():
             "--pipes",
             "mbuffer -r 1M",
             "--pipes",
-            "pv",
+            "pv -s {size}",
         ],
     )
 
@@ -194,14 +194,12 @@ def test_send_pipes():
     assert_that(
         rift.cli.runner.recorded,
         equal_to(
-            [
-                "zfs list -pHt snapshot -o name,guid,createtxg rpool",
-                "ssh user@remote -- zfs list -pHt snapshot -o name,guid,createtxg backup/rpool",
-                "ssh user@remote -- zfs get -H -o value receive_resume_token backup/rpool",
-                "zfs list -pHt bookmark -o name,guid,createtxg rpool",
-                "zfs send -w rpool@rift_2025-12-06_06:15:10_frequently -P -n -v",
-                "zfs send -w rpool@rift_2025-12-06_06:15:10_frequently | mbuffer -r 1M | pv | ssh user@remote -- zfs receive -s -u backup/rpool",
-            ]
+            ['zfs list -pHt snapshot -o name,guid,createtxg rpool',
+             'ssh user@remote -- zfs list -pHt snapshot -o name,guid,createtxg backup/rpool',
+             'ssh user@remote -- zfs get -H -o value receive_resume_token backup/rpool',
+             'zfs list -pHt bookmark -o name,guid,createtxg rpool',
+             'zfs send -w rpool@rift_2025-12-06_06:15:10_frequently -P -n -v',
+             'zfs send -w rpool@rift_2025-12-06_06:15:10_frequently | mbuffer -r 1M | pv -s 3711767360 | ssh user@remote -- zfs receive -s -u backup/rpool']
         ),
     )
 
