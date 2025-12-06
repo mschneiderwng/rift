@@ -224,6 +224,8 @@ The modules I created are available in the repository and their usage looks like
                     sshPrivateKey = config.sops.secrets."rift/sync/key".path;
                     filter = ''rift_.*_.*(?<!frequently)$''; # send all but frequently snaps
                     pipes = [ "pv -p -e -t -r -a -b -s {size}" ];
+                    zfsSendOptions = ["-w"];
+                    zfsRecvOptions = ["-s" "-u" "-F"];
                 };
             };
         };
