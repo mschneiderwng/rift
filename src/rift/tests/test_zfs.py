@@ -299,6 +299,7 @@ def test_recv():
         equal_to([("zfs", "send", "..."), ("zfs", "receive", "-s", "-u", "source/A")]),
     )
 
+
 def test_resume_token():
     runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)

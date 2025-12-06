@@ -224,7 +224,7 @@ def send(source, target, pipes, source_ssh_options, target_ssh_options, dry_run,
 @dry_run_option()
 @verbose_option()
 def sync(source, target, regex, pipes, source_ssh_options, target_ssh_options, dry_run, verbose):
-    """ Send all newer snapshots (sync)
+    """Send all newer snapshots (sync)
 
     SOURCE the dataset which snapshots should be sent to the target. Syntax is [user@remote:]src/data
 
@@ -272,7 +272,7 @@ def sync(source, target, regex, pipes, source_ssh_options, target_ssh_options, d
 @click.option("--time-format", default="%Y-%m-%d_%H:%M:%S", help="Format for timestamp (default: '%Y-%m-%d_%H:%M:%S').")
 @verbose_option()
 def snapshot(dataset, name, bookmark, ssh_options, time_format, verbose):
-    """ Create a snapshot (and bookmark where appropriate) for a dataset.
+    """Create a snapshot (and bookmark where appropriate) for a dataset.
 
     DATASET the dataset for which a snapshot should be created. Syntax is [user@remote:]src/data
 
@@ -321,7 +321,7 @@ def snapshot(dataset, name, bookmark, ssh_options, time_format, verbose):
 @dry_run_option()
 @verbose_option()
 def prune(dataset, keep, ssh_options, dry_run, verbose):
-    """ Destroy snapshots according to a given retention rule.
+    """Destroy snapshots according to a given retention rule.
 
     DATASET the dataset whose snapshots should be destroyed. Syntax is [user@remote:]src/data
 
@@ -336,7 +336,6 @@ def prune(dataset, keep, ssh_options, dry_run, verbose):
     """
     configure_logging(verbose)
     with error_handler():
-
         # parse dataset
         host, path = dataset
         remote = None if host is None else Remote(host, ssh_options)

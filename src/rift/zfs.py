@@ -115,7 +115,7 @@ class ZfsBackend(Backend):
         self.cache_clear()
         args = ssh(self.remote) + ("zfs", "receive", "-s", "-u", self.path) + (("-n", "-v") if dry_run else ())
         # replace templates
-        pipes = [tuple(map(lambda arg: arg.format(size=stream.size()),pipe)) for pipe in pipes]
+        pipes = [tuple(map(lambda arg: arg.format(size=stream.size()), pipe)) for pipe in pipes]
         self.runner.run(stream.args, *pipes, args)
 
     def resume_token(self) -> Optional[str]:
