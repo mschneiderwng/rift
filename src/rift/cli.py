@@ -263,33 +263,6 @@ def snapshot(dataset, name, tag, timestamp, bookmark, ssh_options, verbose):
             dataset.bookmark(name)
 
 
-@click.command(name="list")
-@click.argument("dataset", type=DATASET_TYPE)
-@click.option(
-    "--filter",
-    "-f",
-    "regex",
-    default="rift.*",
-    help="Show only snapshots which match regex (default: 'rift.*').",
-)
-@click.option("--snapshots/--no-snapshots", default=True, help="List snapshots (default: True).")
-@click.option("--bookmarks/--no-bookmarks", default=False, help="List bookmarks (default: False).")
-@verbose_option()
-def list_snapshots(dataset, regex, snapshots, bookmarks, verbose):
-    configure_logging(verbose)
-    with error_handler():
-        # parse dataset
-        remote, path = dataset
-        dataset: Dataset = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
-        result = (dataset.snapshots() if snapshots else ()) + (dataset.bookmarks() if bookmarks else ())
-
-        p = re.compile(regex)
-        snapshots: Iterable[Snapshot | Bookmark] = filter(lambda snap: p.match(str(snap.name)), result)
-
-        for snap in snapshots:
-            print(f"{snap.guid:<20} {snap.fqn}")
-
-
 @click.command()
 @click.argument("dataset", type=DATASET_TYPE)
 @click.option(
@@ -315,5 +288,4 @@ def prune(dataset, keep, dry_run, verbose):
 main.add_command(send)
 main.add_command(sync)
 main.add_command(snapshot)
-main.add_command(list_snapshots)
 main.add_command(prune)
