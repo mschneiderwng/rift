@@ -15,22 +15,16 @@ rift send user@remote:src/data@snap1 back/src/data             # pull
 rift send user@remote:src/data@snap1 user@remote:back/src/data # broker
 rift send src/data@snap1 back/src/data                         # local copy
 ```
-### Flags
-Bandwidth limits needs `mbuffer` installed. The quantity passed to `--bwlimit` is forwarded to `mbuffer -r`.
+### Pipes
+It is possible to insert commands in between `zfs send` and `zfs recv` via `--pipes/-p`. 
 ```bash
-rift send src/data@snap1 user@remote:back/src/data --bwlimit 1M
+rift send src/data@snap1 user@remote:back/src/data -p "mbuffer -r 1M" -p "pv"
 ```
 ## Send all newer snapshots (sync)
 `rift sync` has the same push/pull/local modes as `rift send`. It builds a list of snapshots from the source which are
 newer than the newest snapshot on the target. This list is then iterated by `rift send`.
 ```bash
 rift sync src/data user@remote:back/src/data
-```
-### Flags
-The list of snapshots to be sent can be filtered by a regular expression. Only snapshots that match the regex will
-be sent to the target. The default filter is `"rift.*"`.
-```bash
-rift sync src/data user@remote:back/src/data --filter "rift_.*_.*(?<!frequently)$"
 ```
 ## Create snapshot
 ```bash
