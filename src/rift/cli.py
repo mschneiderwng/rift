@@ -143,6 +143,22 @@ def main(max_content_width=180):
 @click.argument("target", type=DATASET_TYPE)
 @click.option("--pipes", "-p", type=str, multiple=True, help="Command which zfs send should pipe to before zfs recv.")
 @click.option(
+    "--zfs-send_option",
+    "-S",
+    "zfs_send_options",
+    default=("-w",),
+    multiple=True,
+    help="Options passed to zfs send. Can be used multiple times.",
+)
+@click.option(
+    "--zfs-recv_option",
+    "-R",
+    "zfs_recv_options",
+    default=("-s", "-u"),
+    multiple=True,
+    help="Options passed to zfs recv. Can be used multiple times.",
+)
+@click.option(
     "--source-ssh-options",
     "-s",
     multiple=True,
@@ -156,7 +172,9 @@ def main(max_content_width=180):
 )
 @dry_run_option()
 @verbose_option()
-def send(source, target, pipes, source_ssh_options, target_ssh_options, dry_run, verbose):
+def send(
+    source, target, pipes, zfs_send_options, zfs_recv_options, source_ssh_options, target_ssh_options, dry_run, verbose
+):
     """Send individual snapshots.
 
     `rift send` automatically detects if a snapshot needs to be sent as full, incremental or can be resumed.
@@ -195,7 +213,15 @@ def send(source, target, pipes, source_ssh_options, target_ssh_options, dry_run,
         target = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
 
         pipes: list[tuple[str]] = [tuple(p.split(" ")) for p in pipes]
-        return rift.datasets.send(snapshot, source, target, pipes=pipes, dry_run=dry_run)
+        return rift.datasets.send(
+            snapshot,
+            source,
+            target,
+            send_options=tuple(zfs_send_options),
+            recv_options=tuple(zfs_recv_options),
+            pipes=pipes,
+            dry_run=dry_run,
+        )
 
 
 @click.command()
@@ -210,6 +236,22 @@ def send(source, target, pipes, source_ssh_options, target_ssh_options, dry_run,
 )
 @click.option("--pipes", "-p", type=str, multiple=True, help="Command which zfs send should pipe to before zfs recv.")
 @click.option(
+    "--zfs-send_option",
+    "-S",
+    "zfs_send_options",
+    default=("-w",),
+    multiple=True,
+    help="Options passed to zfs send. Can be used multiple times.",
+)
+@click.option(
+    "--zfs-recv_option",
+    "-R",
+    "zfs_recv_options",
+    default=("-s", "-u"),
+    multiple=True,
+    help="Options passed to zfs recv. Can be used multiple times.",
+)
+@click.option(
     "--source-ssh-options",
     "-s",
     multiple=True,
@@ -223,7 +265,18 @@ def send(source, target, pipes, source_ssh_options, target_ssh_options, dry_run,
 )
 @dry_run_option()
 @verbose_option()
-def sync(source, target, regex, pipes, source_ssh_options, target_ssh_options, dry_run, verbose):
+def sync(
+    source,
+    target,
+    regex,
+    pipes,
+    zfs_send_options,
+    zfs_recv_options,
+    source_ssh_options,
+    target_ssh_options,
+    dry_run,
+    verbose,
+):
     """Send all newer snapshots (sync)
 
     SOURCE the dataset which snapshots should be sent to the target. Syntax is [user@remote:]src/data
@@ -252,7 +305,15 @@ def sync(source, target, regex, pipes, source_ssh_options, target_ssh_options, d
         target = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
 
         pipes: list[tuple[str]] = [tuple(p.split(" ")) for p in pipes]
-        rift.datasets.sync(source, target, regex=regex, pipes=pipes, dry_run=dry_run)
+        rift.datasets.sync(
+            source,
+            target,
+            regex=regex,
+            send_options=tuple(zfs_send_options),
+            recv_options=tuple(zfs_recv_options),
+            pipes=pipes,
+            dry_run=dry_run,
+        )
 
 
 @click.command()

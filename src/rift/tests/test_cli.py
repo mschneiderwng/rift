@@ -40,7 +40,7 @@ def test_dataset_type_remote():
 
 def test_dataset_type_invalid():
     type = DatasetType()
-    with pytest.raises(click.exceptions.BadParameter): # ty: ignore
+    with pytest.raises(click.exceptions.BadParameter):  # ty: ignore
         type.convert("rpool@snap", None, None)
 
 
@@ -62,7 +62,7 @@ def test_snapshot_type_remote():
 
 def test_snapshot_type_invalid():
     type = SnapshotType()
-    with pytest.raises(click.exceptions.BadParameter): # ty: ignore
+    with pytest.raises(click.exceptions.BadParameter):  # ty: ignore
         type.convert("rpool", None, None)
 
 

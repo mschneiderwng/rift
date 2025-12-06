@@ -21,8 +21,10 @@ def sizeof_fmt(num: float, suffix: str = "B") -> str:
 
 @frozen
 class Stream:
-    def to(self, target: "Dataset", *, pipes: Sequence[tuple[str, ...]] = (), dry_run: bool):
-        target.recv(self, pipes=pipes, dry_run=dry_run)
+    def to(
+        self, target: "Dataset", *, recv_options: tuple[str, ...], pipes: Sequence[tuple[str, ...]] = (), dry_run: bool
+    ):
+        target.recv(self, recv_options=recv_options, pipes=pipes, dry_run=dry_run)
 
     def size(self) -> int:
         """Returns the estimated size of the stream in bytes"""
@@ -65,21 +67,23 @@ class Backend:
         raise NotImplementedError
 
     @multimethod
-    def send(self, token: str) -> Stream:
+    def send(self, token: str, *, send_options: tuple[str, ...]) -> Stream:
         """Create a resume stream"""
         raise NotImplementedError
 
     @multimethod
-    def send(self, snapshot: Snapshot, ancestor: Snapshot | Bookmark) -> Stream:
+    def send(self, snapshot: Snapshot, ancestor: Snapshot | Bookmark, *, send_options: tuple[str, ...]) -> Stream:
         """Create an incremental stream"""
         raise NotImplementedError
 
     @multimethod
-    def send(self, snapshot: Snapshot) -> Stream:
+    def send(self, snapshot: Snapshot, *, send_options: tuple[str, ...]) -> Stream:
         """Create a full stream"""
         raise NotImplementedError
 
-    def recv(self, stream: Stream, *, pipes: Sequence[tuple[str, ...]] = (), dry_run: bool) -> None:
+    def recv(
+        self, stream: Stream, *, recv_options: tuple[str, ...], pipes: Sequence[tuple[str, ...]] = (), dry_run: bool
+    ) -> None:
         """Consume a stream to produce a snapshot on the target (self)"""
         raise NotImplementedError
 
@@ -137,23 +141,25 @@ class Dataset:
         return self.backend.exists()
 
     @multimethod
-    def send(self, token: str) -> Stream:
+    def send(self, token: str, *, send_options: tuple[str, ...]) -> Stream:
         """Create a resume stream"""
-        return self.backend.send(token)
+        return self.backend.send(token, send_options=send_options)
 
     @multimethod
-    def send(self, snapshot: Snapshot, ancestor: Snapshot | Bookmark) -> Stream:
+    def send(self, snapshot: Snapshot, ancestor: Snapshot | Bookmark, *, send_options: tuple[str, ...]) -> Stream:
         """Create an incremental stream"""
-        return self.backend.send(snapshot, ancestor)
+        return self.backend.send(snapshot, ancestor, send_options=send_options)
 
     @multimethod
-    def send(self, snapshot: Snapshot) -> Stream:
+    def send(self, snapshot: Snapshot, *, send_options: tuple[str, ...]) -> Stream:
         """Create a full stream"""
-        return self.backend.send(snapshot)
+        return self.backend.send(snapshot, send_options=send_options)
 
-    def recv(self, stream: Stream, *, pipes: Sequence[tuple[str, ...]] = (), dry_run: bool) -> None:
+    def recv(
+        self, stream: Stream, *, recv_options: tuple[str, ...], pipes: Sequence[tuple[str, ...]] = (), dry_run: bool
+    ) -> None:
         """Consume a stream to produce a snapshot on the target (self)"""
-        self.backend.recv(stream=stream, pipes=pipes, dry_run=dry_run)
+        self.backend.recv(stream=stream, recv_options=recv_options, pipes=pipes, dry_run=dry_run)
 
     def resume_token(self) -> Optional[str]:
         """Returns a resume token of a previously interrupted recv"""
@@ -188,6 +194,8 @@ def send(
     source: Dataset,
     target: Dataset,
     *,
+    send_options: tuple[str, ...] = (),
+    recv_options: tuple[str, ...] = (),
     pipes: Sequence[tuple[str, ...]] = (),
     dry_run: bool,
 ) -> None:
@@ -198,36 +206,38 @@ def send(
         raise FileNotFoundError(f"snapshot '{snapshot.fqn}' not in source '{source.fqn}'")
 
     if not target.exists():
-        stream = source.send(snapshot)
+        stream = source.send(snapshot, send_options=send_options)
         log.info(f"rift send (full) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
-        return stream.to(target, pipes=pipes, dry_run=dry_run)
+        return stream.to(target, recv_options=recv_options, pipes=pipes, dry_run=dry_run)
 
     if snapshot.guid in map(attrgetter("guid"), target.snapshots()):
         log.info(f"rift send '{snapshot.fqn}' to '{target.fqn}' skipped since snapshot already on target")
         return None
 
     elif (token := target.resume_token()) is not None:
-        stream = source.send(token)
+        stream = source.send(token, send_options=send_options)
         log.info(f"rift send (resume) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
         log.debug(f"resume send with token='{token}' [{sizeof_fmt(stream.size())}]")
-        return stream.to(target, pipes=pipes, dry_run=dry_run)
+        return stream.to(target, recv_options=recv_options, pipes=pipes, dry_run=dry_run)
 
     elif (base := ancestor(snapshot, source, target)) is not None:
-        stream = source.send(snapshot, base)
+        stream = source.send(snapshot, base, send_options=send_options)
         log.info(f"rift send (incremental) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
         log.debug(f"incremental send '{snapshot.fqn}' from base '{base.fqn}' [{sizeof_fmt(stream.size())}]")
-        return stream.to(target, pipes=pipes, dry_run=dry_run)
+        return stream.to(target, recv_options=recv_options, pipes=pipes, dry_run=dry_run)
 
     else:
-        stream = source.send(snapshot)
+        stream = source.send(snapshot, send_options=send_options)
         log.info(f"rift send (full) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
-        return stream.to(target, pipes=pipes, dry_run=dry_run)
+        return stream.to(target, recv_options=recv_options, pipes=pipes, dry_run=dry_run)
 
 
 def sync(
     source: Dataset,
     target: Dataset,
     *,
+    send_options: tuple[str, ...] = (),
+    recv_options: tuple[str, ...] = (),
     pipes: Sequence[tuple[str, ...]] = (),
     regex: str = ".*",
     dry_run: bool,
@@ -271,7 +281,9 @@ def sync(
 
     # send missing snapshots
     for snapshot in to_sync:
-        send(snapshot, source, target, pipes=pipes, dry_run=dry_run)
+        send(
+            snapshot, source, target, send_options=send_options, recv_options=recv_options, pipes=pipes, dry_run=dry_run
+        )
 
 
 def prune(dataset: Dataset, policy: dict[str, int], *, dry_run: bool) -> None:

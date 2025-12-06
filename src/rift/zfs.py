@@ -96,24 +96,35 @@ class ZfsBackend(Backend):
             return False
 
     @multimethod
-    def send(self, token: str) -> Stream:
+    def send(self, token: str, *, send_options: tuple[str, ...] = ("-w",)) -> Stream:
         """Create a resume stream"""
-        return ZfsStream(ssh(self.remote) + ("zfs", "send", "-w", "-t", token), self.runner)
+        return ZfsStream(ssh(self.remote) + ("zfs", "send", *send_options, "-t", token), self.runner)
 
     @multimethod
-    def send(self, snapshot: Snapshot, ancestor: Snapshot | Bookmark) -> Stream:
+    def send(
+        self, snapshot: Snapshot, ancestor: Snapshot | Bookmark, *, send_options: tuple[str, ...] = ("-w",)
+    ) -> Stream:
         # use -i flag since we may want to filter intermediary snapshots
-        return ZfsStream(ssh(self.remote) + ("zfs", "send", "-w", "-i", ancestor.fqn, snapshot.fqn), self.runner)
+        return ZfsStream(
+            ssh(self.remote) + ("zfs", "send", *send_options, "-i", ancestor.fqn, snapshot.fqn), self.runner
+        )
 
     @multimethod
-    def send(self, snapshot: Snapshot) -> Stream:
+    def send(self, snapshot: Snapshot, *, send_options: tuple[str, ...] = ("-w",)) -> Stream:
         """Create a full stream"""
-        return ZfsStream(ssh(self.remote) + ("zfs", "send", "-w", snapshot.fqn), self.runner)
+        return ZfsStream(ssh(self.remote) + ("zfs", "send", *send_options, snapshot.fqn), self.runner)
 
-    def recv(self, stream: Stream, *, pipes: Sequence[tuple[str, ...]] = (), dry_run: bool) -> None:
+    def recv(
+        self,
+        stream: Stream,
+        *,
+        recv_options: tuple[str, ...] = ("-s", "-u"),
+        pipes: Sequence[tuple[str, ...]] = (),
+        dry_run: bool,
+    ) -> None:
         assert isinstance(stream, ZfsStream), f"do not know how to recv {stream}"
         self.cache_clear()
-        args = ssh(self.remote) + ("zfs", "receive", "-s", "-u", self.path) + (("-n", "-v") if dry_run else ())
+        args = ssh(self.remote) + ("zfs", "receive", *recv_options, self.path) + (("-n", "-v") if dry_run else ())
         # replace templates
         pipes = [tuple(map(lambda arg: arg.format(size=stream.size()), pipe)) for pipe in pipes]
         self.runner.run(stream.args, *pipes, args)
