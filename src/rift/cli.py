@@ -159,14 +159,16 @@ def main(max_content_width=180):
     help="Options passed to zfs recv. Can be used multiple times.",
 )
 @click.option(
-    "--source-ssh-options",
+    "--source-ssh-option",
     "-s",
+    "source_ssh_options",
     multiple=True,
     help='ssh options like -o "Compression=yes" for source. Can be used multiple times.',
 )
 @click.option(
-    "--target-ssh-options",
+    "--target-ssh-option",
     "-t",
+    "target_ssh_options",
     multiple=True,
     help='ssh options like -o "Compression=yes" for target. Can be used multiple times.',
 )
@@ -252,14 +254,16 @@ def send(
     help="Options passed to zfs recv. Can be used multiple times.",
 )
 @click.option(
-    "--source-ssh-options",
+    "--source-ssh-option",
     "-s",
+    "source_ssh_options",
     multiple=True,
     help='ssh options like -o "Compression=yes" for source. Can be used multiple times.',
 )
 @click.option(
-    "--target-ssh-options",
+    "--target-ssh-option",
     "-t",
+    "target_ssh_options",
     multiple=True,
     help='ssh options like -o "Compression=yes" for target. Can be used multiple times.',
 )
