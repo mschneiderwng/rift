@@ -51,7 +51,10 @@ Options:
 rift sync --help
 Usage: rift sync [OPTIONS] SOURCE TARGET
 
-  Send all newer snapshots (sync)
+  Send all newer snapshots (sync).
+
+  `rift sync` automatically detects if a snapshot needs to be sent as full, incremental or can be resumed.
+  It also supports incremental send from bookmarks.
 
   SOURCE the dataset which snapshots should be sent to the target. Syntax is
   [user@remote:]src/data
