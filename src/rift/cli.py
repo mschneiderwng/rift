@@ -1,11 +1,9 @@
 import logging
-import re
 import subprocess
 import sys
 from contextlib import contextmanager
 from datetime import datetime
 from shlex import quote
-from typing import Iterable
 
 import click
 import structlog
@@ -13,7 +11,6 @@ import structlog
 import rift.datasets
 from rift.commands import SystemRunner
 from rift.datasets import Dataset, Remote
-from rift.snapshots import Bookmark, Snapshot
 from rift.zfs import ZfsBackend
 
 runner = SystemRunner()
