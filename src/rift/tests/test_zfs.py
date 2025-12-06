@@ -315,10 +315,15 @@ def test_recv_bwlimit():
         ),
     )
 
+
 def test_recv_bwlimit_pv():
     runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    dataset.recv(ZfsStream(("zfs", "send", "..."), runner), pipes=[("mbuffer", "-r", "1M"),("pv", "-p", "-t", "-e", "-r", "-b")], dry_run=False)
+    dataset.recv(
+        ZfsStream(("zfs", "send", "..."), runner),
+        pipes=[("mbuffer", "-r", "1M"), ("pv", "-p", "-t", "-e", "-r", "-b")],
+        dry_run=False,
+    )
     assert_that(
         runner.recorded,
         equal_to(
@@ -330,6 +335,7 @@ def test_recv_bwlimit_pv():
             ]
         ),
     )
+
 
 def test_resume_token():
     runner = RunnerMock()
