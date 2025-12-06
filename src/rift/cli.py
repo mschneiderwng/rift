@@ -48,7 +48,7 @@ class DatasetType(click.ParamType):
         dataset = value
 
         # Split off remote part if present: user@host:
-        if ":" in value and re.match(r"^[^/]+@[^:]+:", value):
+        if value.count("@") > 0 and ":" in value:
             remote, dataset = value.split(":", 1)
 
         if dataset is None or "@" in dataset:
@@ -71,8 +71,9 @@ class SnapshotType(click.ParamType):
         dataset = value
         snapshot = None
 
-        # Split off remote part if present: user@host:
-        if ":" in value and re.match(r"^[^/]+@[^:]+:", value):
+        # if value contains 1 '@', it is of the form src/data@snap
+        # if value contains 2 '@', it is of the form user@remote:src/data@snap
+        if value.count("@") > 1:
             remote, dataset = value.split(":", 1)
 
         # Split off snapshot if present: @snapshot
