@@ -143,20 +143,20 @@ def main(max_content_width=180):
 @click.argument("target", type=DATASET_TYPE)
 @click.option("--pipes", "-p", type=str, multiple=True, help="Command which zfs send should pipe to before zfs recv.")
 @click.option(
-    "--zfs-send_option",
+    "--zfs-send-option",
     "-S",
     "zfs_send_options",
     default=("-w",),
     multiple=True,
-    help="Options passed to zfs send. Can be used multiple times.",
+    help="Options passed to zfs send. Can be used multiple times (default: '-w').",
 )
 @click.option(
-    "--zfs-recv_option",
+    "--zfs-recv-option",
     "-R",
     "zfs_recv_options",
     default=("-s", "-u", "-F"),
     multiple=True,
-    help="Options passed to zfs recv. Can be used multiple times.",
+    help="Options passed to zfs recv. Can be used multiple times (default: '-s', '-u', '-F').",
 )
 @click.option(
     "--source-ssh-option",
@@ -238,20 +238,20 @@ def send(
 )
 @click.option("--pipes", "-p", type=str, multiple=True, help="Command which zfs send should pipe to before zfs recv.")
 @click.option(
-    "--zfs-send_option",
+    "--zfs-send-option",
     "-S",
     "zfs_send_options",
     default=("-w",),
     multiple=True,
-    help="Options passed to zfs send. Can be used multiple times.",
+    help="Options passed to zfs send. Can be used multiple times (default: '-w').",
 )
 @click.option(
-    "--zfs-recv_option",
+    "--zfs-recv-option",
     "-R",
     "zfs_recv_options",
     default=("-s", "-u", "-F"),
     multiple=True,
-    help="Options passed to zfs recv. Can be used multiple times.",
+    help="Options passed to zfs recv. Can be used multiple times (default: '-s', '-u', '-F').",
 )
 @click.option(
     "--source-ssh-option",
@@ -328,15 +328,16 @@ def sync(
     default=True,
     help="Also create bookmark of snapshot (default: '--bookmark').",
 )
+@click.option("--time-format", default="%Y-%m-%d_%H:%M:%S", help="Format for timestamp (default: '%Y-%m-%d_%H:%M:%S').")
 @click.option(
-    "--ssh-options",
+    "--ssh-option",
     "-s",
+    "ssh_options",
     multiple=True,
     help='ssh options like -o "Compression=yes". Can be used multiple times.',
 )
-@click.option("--time-format", default="%Y-%m-%d_%H:%M:%S", help="Format for timestamp (default: '%Y-%m-%d_%H:%M:%S').")
 @verbose_option()
-def snapshot(dataset, name, bookmark, ssh_options, time_format, verbose):
+def snapshot(dataset, name, bookmark, time_format, ssh_options, verbose):
     """Create a snapshot (and bookmark where appropriate) for a dataset.
 
     DATASET the dataset for which a snapshot should be created. Syntax is [user@remote:]src/data
@@ -378,8 +379,9 @@ def snapshot(dataset, name, bookmark, ssh_options, time_format, verbose):
     help="Retention rule (e.g. '--keep rift_.*_hourly 24 --keep rift_.*_weekly 4')",
 )
 @click.option(
-    "--ssh-options",
+    "--ssh-option",
     "-s",
+    "ssh_options",
     multiple=True,
     help='ssh options like -o "Compression=yes". Can be used multiple times.',
 )

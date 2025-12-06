@@ -36,12 +36,14 @@ Usage: rift send [OPTIONS] SOURCE TARGET
       rift send src/data@snap1 user@remote:back/src/data -p "mbuffer -r 1M" -p "pv -s {size}"
 
 Options:
-  -p, --pipes TEXT               Command which zfs send should pipe to before zfs recv.
-  -s, --source-ssh-options TEXT  ssh options like -o "Compression=yes" for source. Can be used multiple times.
-  -t, --target-ssh-options TEXT  ssh options like -o "Compression=yes" for target. Can be used multiple times.
-  -n, --dry-run                  Dry run commands without making any changes.
-  -v, --verbose                  Increase verbosity (-v, -vv for more detail).
-  --help                         Show this message and exit.
+  -p, --pipes TEXT              Command which zfs send should pipe to before zfs recv.
+  -S, --zfs-send-option TEXT    Options passed to zfs send. Can be used multiple times.
+  -R, --zfs-recv-option TEXT    Options passed to zfs recv. Can be used multiple times.
+  -s, --source-ssh-option TEXT  ssh options like -o "Compression=yes" for source. Can be used multiple times.
+  -t, --target-ssh-option TEXT  ssh options like -o "Compression=yes" for target. Can be used multiple times.
+  -n, --dry-run                 Dry run commands without making any changes.
+  -v, --verbose                 Increase verbosity (-v, -vv for more detail).
+  --help                        Show this message and exit.
 ```
 
 ## Send all newer snapshots (sync)
@@ -67,13 +69,15 @@ Usage: rift sync [OPTIONS] SOURCE TARGET
       rift sync user@remote:src/data target/data # pull
 
 Options:
-  -f, --filter TEXT              Sync only snapshots which match regex (default: 'rift.*').
-  -p, --pipes TEXT               Command which zfs send should pipe to before zfs recv.
-  -s, --source-ssh-options TEXT  ssh options like -o "Compression=yes" for source. Can be used multiple times.
-  -t, --target-ssh-options TEXT  ssh options like -o "Compression=yes" for target. Can be used multiple times.
-  -n, --dry-run                  Dry run commands without making any changes.
-  -v, --verbose                  Increase verbosity (-v, -vv for more detail).
-  --help                         Show this message and exit.
+  -f, --filter TEXT             Sync only snapshots which match regex (default: 'rift.*').
+  -p, --pipes TEXT              Command which zfs send should pipe to before zfs recv.
+  -S, --zfs-send-option TEXT    Options passed to zfs send. Can be used multiple times.
+  -R, --zfs-recv-option TEXT    Options passed to zfs recv. Can be used multiple times.
+  -s, --source-ssh-option TEXT  ssh options like -o "Compression=yes" for source. Can be used multiple times.
+  -t, --target-ssh-option TEXT  ssh options like -o "Compression=yes" for target. Can be used multiple times.
+  -n, --dry-run                 Dry run commands without making any changes.
+  -v, --verbose                 Increase verbosity (-v, -vv for more detail).
+  --help                        Show this message and exit.
 ```
 
 ## Create snapshots
@@ -98,8 +102,8 @@ Usage: rift snapshot [OPTIONS] DATASET
 Options:
   --name TEXT                 Snapshot name (default: 'rift_{datetime}').
   --bookmark / --no-bookmark  Also create bookmark of snapshot (default: '--bookmark').
-  -s, --ssh-options TEXT      ssh options like -o "Compression=yes". Can be used multiple times.
   --time-format TEXT          Format for timestamp (default: '%Y-%m-%d_%H:%M:%S').
+  -s, --ssh-option TEXT       ssh options like -o "Compression=yes". Can be used multiple times.
   -v, --verbose               Increase verbosity (-v, -vv for more detail).
   --help                      Show this message and exit.
 ```
@@ -125,7 +129,7 @@ Usage: rift prune [OPTIONS] DATASET
 
 Options:
   --keep <TEXT INTEGER>...  Retention rule (e.g. '--keep rift_.*_hourly 24 --keep rift_.*_weekly 4')
-  -s, --ssh-options TEXT    ssh options like -o "Compression=yes". Can be used multiple times.
+  -s, --ssh-option TEXT     ssh options like -o "Compression=yes". Can be used multiple times.
   -n, --dry-run             Dry run commands without making any changes.
   -v, --verbose             Increase verbosity (-v, -vv for more detail).
   --help                    Show this message and exit.
