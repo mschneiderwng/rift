@@ -37,8 +37,8 @@ Usage: rift send [OPTIONS] SOURCE TARGET
 
 Options:
   -p, --pipes TEXT              Command which zfs send should pipe to before zfs recv.
-  -S, --zfs-send-option TEXT    Options passed to zfs send. Can be used multiple times.
-  -R, --zfs-recv-option TEXT    Options passed to zfs recv. Can be used multiple times.
+  -S, --zfs-send-option TEXT    Options passed to zfs send. Can be used multiple times (default: '-w').
+  -R, --zfs-recv-option TEXT    Options passed to zfs recv. Can be used multiple times (default: '-s', '-u', '-F').
   -s, --source-ssh-option TEXT  ssh options like -o "Compression=yes" for source. Can be used multiple times.
   -t, --target-ssh-option TEXT  ssh options like -o "Compression=yes" for target. Can be used multiple times.
   -n, --dry-run                 Dry run commands without making any changes.
@@ -71,8 +71,8 @@ Usage: rift sync [OPTIONS] SOURCE TARGET
 Options:
   -f, --filter TEXT             Sync only snapshots which match regex (default: 'rift.*').
   -p, --pipes TEXT              Command which zfs send should pipe to before zfs recv.
-  -S, --zfs-send-option TEXT    Options passed to zfs send. Can be used multiple times.
-  -R, --zfs-recv-option TEXT    Options passed to zfs recv. Can be used multiple times.
+  -S, --zfs-send-option TEXT    Options passed to zfs send. Can be used multiple times (default: '-w').
+  -R, --zfs-recv-option TEXT    Options passed to zfs recv. Can be used multiple times (default: '-s', '-u' '-F').
   -s, --source-ssh-option TEXT  ssh options like -o "Compression=yes" for source. Can be used multiple times.
   -t, --target-ssh-option TEXT  ssh options like -o "Compression=yes" for target. Can be used multiple times.
   -n, --dry-run                 Dry run commands without making any changes.
