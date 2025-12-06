@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Sequence
 from functools import cache
 from typing import Iterable, Optional
 
@@ -43,7 +44,7 @@ class InMemoryBackend(Backend):
     bookmarks_data: list[Bookmark] = Factory(list)
     resume_token_data: Optional[str] = None
     received_as: dict[Snapshot, Stream] = Factory(dict)
-    _exists: bool = True
+    does_exist: bool = True
 
     def snapshots(self) -> tuple[Snapshot, ...]:
         return tuple(self.snapshots_data)
@@ -82,7 +83,7 @@ class InMemoryBackend(Backend):
     def send(self, snapshot: Snapshot) -> Stream:
         return FullInMemoryStream(snapshot)
 
-    def recv(self, stream: Stream, bwlimit: Optional[str], dry_run: bool) -> None:
+    def recv(self, stream: Stream, *, pipes: Sequence[tuple[str, ...]] = (), dry_run: bool) -> None:
         assert isinstance(
             stream,
             (FullInMemoryStream, IncrementalInMemoryStream, ResumingInMemoryStream),
@@ -94,7 +95,7 @@ class InMemoryBackend(Backend):
         return self.resume_token_data
 
     def exists(self) -> bool:
-        return self._exists
+        return self.does_exist
 
     def destroy(self, snapshots: Iterable[str], dry_run: bool) -> None:
         for s in self.snapshots_data:
@@ -361,7 +362,7 @@ def test_sync_initial():
     s3 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s3", createtxg=3)
     s4 = Snapshot(fqn="source/A@s3", guid="uuid:source/A@s4", createtxg=4)
     source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1, s2, s3, s4]))
-    target = Dataset(InMemoryBackend("target/backups/A", exists=False, snapshots_data=[]))
+    target = Dataset(InMemoryBackend("target/backups/A", does_exist=False, snapshots_data=[]))
 
     # sync newer from source to target
     sync(source, target, dry_run=False)

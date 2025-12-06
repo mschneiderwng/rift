@@ -142,10 +142,10 @@ def main():
 @click.command()
 @click.argument("source", type=SNAPSHOT_TYPE)
 @click.argument("target", type=DATASET_TYPE)
-@click.option("--bwlimit", help="Bandwidth limit (needs mbuffer).")
+@click.option("--pipes", "-p", type=str, multiple=True, help="Command which zfs send should pipe to before zfs recv.")
 @dry_run_option()
 @verbose_option()
-def send(source, target, bwlimit, dry_run, verbose):
+def send(source, target, pipes, dry_run, verbose):
     configure_logging(verbose)
     with error_handler():
         # parse source
@@ -159,7 +159,8 @@ def send(source, target, bwlimit, dry_run, verbose):
         remote, path = target
         target = Dataset(ZfsBackend(path=path, remote=remote, runner=SystemRunner()))
 
-        return rift.datasets.send(snapshot, source, target, bwlimit=bwlimit, dry_run=dry_run)
+        pipes: list[tuple[str]] = [tuple(p.split(" ")) for p in pipes]
+        return rift.datasets.send(snapshot, source, target, pipes=pipes, dry_run=dry_run)
 
 
 @click.command()
@@ -172,7 +173,7 @@ def send(source, target, bwlimit, dry_run, verbose):
     default="rift.*",
     help="Sync only snapshots which match regex (default: 'rift.*').",
 )
-@click.option("--bwlimit", help="Bandwidth limit (needs mbuffer).")
+@click.option("--pipes", "-p", type=str, multiple=True, help="Command which zfs send should pipe to before zfs recv.")
 @click.option(
     "--source-ssh-options",
     "-s",
@@ -187,7 +188,7 @@ def send(source, target, bwlimit, dry_run, verbose):
 )
 @dry_run_option()
 @verbose_option()
-def sync(source, target, regex, bwlimit, source_ssh_options, target_ssh_options, dry_run, verbose):
+def sync(source, target, regex, pipes, source_ssh_options, target_ssh_options, dry_run, verbose):
     configure_logging(verbose)
     with error_handler():
         # parse source
@@ -200,7 +201,8 @@ def sync(source, target, regex, bwlimit, source_ssh_options, target_ssh_options,
         remote = None if host is None else Remote(host, target_ssh_options)
         target = Dataset(ZfsBackend(path=path, remote=remote, runner=SystemRunner()))
 
-        rift.datasets.sync(source, target, regex=regex, bwlimit=bwlimit, dry_run=dry_run)
+        pipes: list[tuple[str]] = [tuple(p.split(" ")) for p in pipes]
+        rift.datasets.sync(source, target, regex=regex, pipes=pipes, dry_run=dry_run)
 
 
 @click.command()

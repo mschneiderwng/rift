@@ -1,7 +1,7 @@
 import re
 from functools import cache
 from shlex import split
-from typing import Collection, Optional
+from typing import Collection, Optional, Sequence
 
 import structlog
 from attrs import field, frozen
@@ -106,15 +106,11 @@ class ZfsBackend(Backend):
         """Create a full stream"""
         return ZfsStream(ssh(self.remote) + ("zfs", "send", "-w", snapshot.fqn), self.runner)
 
-    def recv(self, stream: Stream, bwlimit: Optional[str], dry_run: bool) -> None:
+    def recv(self, stream: Stream, *, pipes: Sequence[tuple[str, ...]] = (), dry_run: bool) -> None:
         assert isinstance(stream, ZfsStream), f"do not know how to recv {stream}"
         self.cache_clear()
         args = ssh(self.remote) + ("zfs", "receive", "-s", "-u", self.path) + (("-n", "-v") if dry_run else ())
-        if bwlimit is not None:
-            mbuffer = ("mbuffer", "-r", bwlimit) if bwlimit is not None else ()
-            self.runner.run(stream.args, mbuffer, args)
-        else:
-            self.runner.run(stream.args, args)
+        self.runner.run(stream.args, *pipes, args)
 
     def resume_token(self) -> Optional[str]:
         """Returns a resume token of a previously interrupted recv"""

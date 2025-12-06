@@ -1,6 +1,6 @@
 import re
 from operator import attrgetter
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Sequence
 
 import structlog
 from attrs import define, frozen
@@ -21,8 +21,8 @@ def sizeof_fmt(num: float, suffix: str = "B") -> str:
 
 @frozen
 class Stream:
-    def to(self, target: "Dataset", bwlimit: Optional[str], dry_run: bool):
-        target.recv(self, bwlimit=bwlimit, dry_run=dry_run)
+    def to(self, target: "Dataset", *, pipes: Sequence[tuple[str, ...]] = (), dry_run: bool):
+        target.recv(self, pipes=pipes, dry_run=dry_run)
 
     def size(self) -> int:
         """Returns the estimated size of the stream in bytes"""
@@ -79,7 +79,7 @@ class Backend:
         """Create a full stream"""
         raise NotImplementedError
 
-    def recv(self, stream: Stream, bwlimit: Optional[str], dry_run: bool) -> None:
+    def recv(self, stream: Stream, *, pipes: Sequence[tuple[str, ...]] = (), dry_run: bool) -> None:
         """Consume a stream to produce a snapshot on the target (self)"""
         raise NotImplementedError
 
@@ -151,9 +151,9 @@ class Dataset:
         """Create a full stream"""
         return self.backend.send(snapshot)
 
-    def recv(self, stream: Stream, bwlimit: Optional[str], dry_run: bool) -> None:
+    def recv(self, stream: Stream, *, pipes: Sequence[tuple[str, ...]] = (), dry_run: bool) -> None:
         """Consume a stream to produce a snapshot on the target (self)"""
-        self.backend.recv(stream=stream, bwlimit=bwlimit, dry_run=dry_run)
+        self.backend.recv(stream=stream, pipes=pipes, dry_run=dry_run)
 
     def resume_token(self) -> Optional[str]:
         """Returns a resume token of a previously interrupted recv"""
@@ -188,7 +188,7 @@ def send(
     source: Dataset,
     target: Dataset,
     *,
-    bwlimit: Optional[str] = None,
+    pipes: Sequence[tuple[str, ...]] = (),
     dry_run: bool,
 ) -> None:
     """Send snapshot from source to target"""
@@ -200,7 +200,7 @@ def send(
     if not target.exists():
         stream = source.send(snapshot)
         log.info(f"rift send (full) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
-        return stream.to(target, bwlimit=bwlimit, dry_run=dry_run)
+        return stream.to(target, pipes=pipes, dry_run=dry_run)
 
     if snapshot.guid in map(attrgetter("guid"), target.snapshots()):
         log.info(f"rift send '{snapshot.fqn}' to '{target.fqn}' skipped since snapshot already on target")
@@ -210,25 +210,25 @@ def send(
         stream = source.send(token)
         log.info(f"rift send (resume) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
         log.debug(f"resume send with token='{token}' [{sizeof_fmt(stream.size())}]")
-        return stream.to(target, bwlimit=bwlimit, dry_run=dry_run)
+        return stream.to(target, pipes=pipes, dry_run=dry_run)
 
     elif (base := ancestor(snapshot, source, target)) is not None:
         stream = source.send(snapshot, base)
         log.info(f"rift send (incremental) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
         log.debug(f"incremental send '{snapshot.fqn}' from base '{base.fqn}' [{sizeof_fmt(stream.size())}]")
-        return stream.to(target, bwlimit=bwlimit, dry_run=dry_run)
+        return stream.to(target, pipes=pipes, dry_run=dry_run)
 
     else:
         stream = source.send(snapshot)
         log.info(f"rift send (full) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
-        return stream.to(target, bwlimit=bwlimit, dry_run=dry_run)
+        return stream.to(target, pipes=pipes, dry_run=dry_run)
 
 
 def sync(
     source: Dataset,
     target: Dataset,
     *,
-    bwlimit: Optional[str] = None,
+    pipes: Sequence[tuple[str, ...]] = (),
     regex: str = ".*",
     dry_run: bool,
 ) -> None:
@@ -271,7 +271,7 @@ def sync(
 
     # send missing snapshots
     for snapshot in to_sync:
-        send(snapshot, source, target, bwlimit=bwlimit, dry_run=dry_run)
+        send(snapshot, source, target, pipes=pipes, dry_run=dry_run)
 
 
 def prune(dataset: Dataset, policy: dict[str, int], *, dry_run: bool) -> None:

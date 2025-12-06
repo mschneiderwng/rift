@@ -293,7 +293,7 @@ def test_send_full():
 def test_recv():
     runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    dataset.recv(ZfsStream(("zfs", "send", "..."), runner), bwlimit=None, dry_run=False)
+    dataset.recv(ZfsStream(("zfs", "send", "..."), runner), dry_run=False)
     assert_that(
         runner.recorded,
         equal_to([("zfs", "send", "..."), ("zfs", "receive", "-s", "-u", "source/A")]),
@@ -303,7 +303,7 @@ def test_recv():
 def test_recv_bwlimit():
     runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    dataset.recv(ZfsStream(("zfs", "send", "..."), runner), bwlimit="1M", dry_run=False)
+    dataset.recv(ZfsStream(("zfs", "send", "..."), runner), pipes=[("mbuffer", "-r", "1M")], dry_run=False)
     assert_that(
         runner.recorded,
         equal_to(
@@ -315,6 +315,21 @@ def test_recv_bwlimit():
         ),
     )
 
+def test_recv_bwlimit_pv():
+    runner = RunnerMock()
+    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
+    dataset.recv(ZfsStream(("zfs", "send", "..."), runner), pipes=[("mbuffer", "-r", "1M"),("pv", "-p", "-t", "-e", "-r", "-b")], dry_run=False)
+    assert_that(
+        runner.recorded,
+        equal_to(
+            [
+                ("zfs", "send", "..."),
+                ("mbuffer", "-r", "1M"),
+                ("pv", "-p", "-t", "-e", "-r", "-b"),
+                ("zfs", "receive", "-s", "-u", "source/A"),
+            ]
+        ),
+    )
 
 def test_resume_token():
     runner = RunnerMock()
