@@ -70,14 +70,14 @@ def test_snapshot_type_invalid():
 def test_snapshot():
     runner = CliRunner(catch_exceptions=False)
     rift.cli.runner = RunnerMock(returns=[None, None])
-    result = runner.invoke(snapshot, ["user@remote:backup/rpool", "--no-bookmark"])
+    result = runner.invoke(snapshot, ["user@remote:backup/rpool", "--no-bookmark", "--name", "rift_{datetime}_daily"])
 
     if result.stderr.strip():
         raise RuntimeError(result.stderr)
 
     assert_that(
         rift.cli.runner.recorded,
-        equal_to(["ssh user@remote -- zfs snapshot backup/rpool@rift_2012-01-14_00:00:00"]),
+        equal_to(["ssh user@remote -- zfs snapshot backup/rpool@rift_2012-01-14_00:00:00_daily"]),
     )
 
 
@@ -85,7 +85,7 @@ def test_snapshot():
 def test_bookmark():
     runner = CliRunner(catch_exceptions=False)
     rift.cli.runner = RunnerMock(returns=[None, None])
-    result = runner.invoke(snapshot, ["user@remote:backup/rpool", "--bookmark"])
+    result = runner.invoke(snapshot, ["user@remote:backup/rpool", "--bookmark", "--name", "rift_no_datetime_daily"])
 
     if result.stderr.strip():
         raise RuntimeError(result.stderr)
@@ -94,8 +94,8 @@ def test_bookmark():
         rift.cli.runner.recorded,
         equal_to(
             [
-                "ssh user@remote -- zfs snapshot backup/rpool@rift_2012-01-14_00:00:00",
-                "ssh user@remote -- zfs bookmark backup/rpool@rift_2012-01-14_00:00:00 backup/rpool#rift_2012-01-14_00:00:00",
+                "ssh user@remote -- zfs snapshot backup/rpool@rift_no_datetime_daily",
+                "ssh user@remote -- zfs bookmark backup/rpool@rift_no_datetime_daily backup/rpool#rift_no_datetime_daily",
             ]
         ),
     )

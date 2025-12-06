@@ -3,7 +3,6 @@ import subprocess
 import sys
 from contextlib import contextmanager
 from datetime import datetime
-from shlex import quote
 
 import click
 import structlog
@@ -221,13 +220,7 @@ def sync(source, target, regex, pipes, source_ssh_options, target_ssh_options, d
 
 @click.command()
 @click.argument("dataset", type=DATASET_TYPE)
-@click.option("--name", default="rift", help="Snapshot name (default: 'rift').")
-@click.option("--tag", default=None, help="Snapshot tag, e.g. 'hourly'.")
-@click.option(
-    "--timestamp/--no-timestamp",
-    default=True,
-    help="Append timestamp to name (default: True).",
-)
+@click.option("--name", default="rift_{datetime}", help="Snapshot name (default: 'rift_{datetime}').")
 @click.option(
     "--bookmark/--no-bookmark",
     default=True,
@@ -240,12 +233,11 @@ def sync(source, target, regex, pipes, source_ssh_options, target_ssh_options, d
     help='Ssh options like -o "Compression=yes" for source. Can be used multiple times.',
 )
 @verbose_option()
-def snapshot(dataset, name, tag, timestamp, bookmark, ssh_options, verbose):
+def snapshot(dataset, name, bookmark, ssh_options, verbose):
     configure_logging(verbose)
     with error_handler():
         ts = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-        name = f"{name}_{ts}" if timestamp else name
-        name = f"{name}_{quote(tag)}" if tag is not None else name
+        name = name.format(datetime=ts)
 
         # parse dataset
         host, path = dataset

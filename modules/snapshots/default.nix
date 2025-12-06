@@ -51,8 +51,8 @@ let
       ]
       ++ lib.optional (cfg.verbosity != "") cfg.verbosity
       ++ [
-        "--tag"
-        "${schedule}"
+        "--name"
+        "rift_{datetime}_${schedule}"
       ]
       ++ [ dataset ]
     );
