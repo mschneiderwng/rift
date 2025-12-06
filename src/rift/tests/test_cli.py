@@ -7,7 +7,7 @@ from freezegun import freeze_time
 from precisely import assert_that, equal_to
 
 import rift.cli
-from rift.cli import DatasetType, SnapshotType, prune, send, snapshot
+from rift.cli import DatasetType, SnapshotType, prune, send, snapshot, sync
 from rift.commands import Runner
 
 
@@ -129,6 +129,35 @@ def test_send():
                 "zfs list -pHt bookmark -o name,guid,createtxg rpool",
                 "zfs send -w rpool@rift_2025-12-06_06:15:10_frequently -P -n -v",
                 "zfs send -w rpool@rift_2025-12-06_06:15:10_frequently | ssh user@remote -- zfs receive -s -u backup/rpool",
+            ]
+        ),
+    )
+
+
+def test_sync():
+    runner = CliRunner(catch_exceptions=False)
+
+    rift.cli.runner = RunnerMock(
+        returns=[
+            "rpool@rift_2025-12-06_06:15:10_frequently      372815780617067482      1337733",
+            "rpool@rift_2025-12-06_06:15:10_frequently      372815780617067482      1337733",
+            None,
+            None,
+            None,
+        ],
+    )
+
+    result = runner.invoke(sync, ["rpool", "user@remote:backup/rpool"])
+
+    if result.stderr.strip():
+        raise RuntimeError(result.stderr)
+
+    assert_that(
+        rift.cli.runner.recorded,
+        equal_to(
+            [
+                "ssh user@remote -- zfs list -pHt snapshot -o name,guid,createtxg backup/rpool",
+                "zfs list -pHt snapshot -o name,guid,createtxg rpool",
             ]
         ),
     )
