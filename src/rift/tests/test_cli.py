@@ -3,10 +3,11 @@ from typing import Iterable, Sequence
 import click
 import pytest
 from click.testing import CliRunner
+from freezegun import freeze_time
 from precisely import assert_that, equal_to
 
 import rift.cli
-from rift.cli import DatasetType, SnapshotType, prune, send
+from rift.cli import DatasetType, SnapshotType, prune, send, snapshot
 from rift.commands import Runner
 
 
@@ -65,6 +66,25 @@ def test_snapshot_type_invalid():
         type.convert("rpool", None, None)
 
 
+@freeze_time("2012-01-14")
+def test_snapshot():
+    runner = CliRunner(catch_exceptions=False)
+
+    rift.cli.runner = RunnerMock(
+        returns=[],
+    )
+
+    result = runner.invoke(snapshot, ["user@remote:backup/rpool"])
+
+    if result.stderr.strip():
+        raise RuntimeError(result.stderr)
+
+    assert_that(
+        rift.cli.runner.recorded,
+        equal_to(["ssh user@remote -- zfs snapshot backup/rpool@rift_2012-01-14_00:00:00"]),
+    )
+
+
 def test_send():
     runner = CliRunner(catch_exceptions=False)
 
@@ -93,6 +113,49 @@ def test_send():
                 "zfs list -pHt bookmark -o name,guid,createtxg rpool",
                 "zfs send -w rpool@rift_2025-12-06_06:15:10_frequently -P -n -v",
                 "zfs send -w rpool@rift_2025-12-06_06:15:10_frequently | ssh user@remote -- zfs receive -s -u backup/rpool",
+            ]
+        ),
+    )
+
+
+def test_send_pipes():
+    runner = CliRunner(catch_exceptions=False)
+
+    rift.cli.runner = RunnerMock(
+        returns=[
+            "rpool@rift_2025-12-06_06:15:10_frequently      372815780617067482      1337733",
+            "",
+            None,
+            "",
+            "full    rpool@rift_2025-12-06_05:15:04_frequently       3711767360\nsize    3711767360",
+        ],
+    )
+
+    result = runner.invoke(
+        send,
+        [
+            "rpool@rift_2025-12-06_06:15:10_frequently",
+            "user@remote:backup/rpool",
+            "--pipes",
+            "mbuffer -r 1M",
+            "--pipes",
+            "pv",
+        ],
+    )
+
+    if result.stderr.strip():
+        raise RuntimeError(result.stderr)
+
+    assert_that(
+        rift.cli.runner.recorded,
+        equal_to(
+            [
+                "zfs list -pHt snapshot -o name,guid,createtxg rpool",
+                "ssh user@remote -- zfs list -pHt snapshot -o name,guid,createtxg backup/rpool",
+                "ssh user@remote -- zfs get -H -o value receive_resume_token backup/rpool",
+                "zfs list -pHt bookmark -o name,guid,createtxg rpool",
+                "zfs send -w rpool@rift_2025-12-06_06:15:10_frequently -P -n -v",
+                "zfs send -w rpool@rift_2025-12-06_06:15:10_frequently | mbuffer -r 1M | pv | ssh user@remote -- zfs receive -s -u backup/rpool",
             ]
         ),
     )

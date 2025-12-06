@@ -24,6 +24,7 @@ test = [
     "precisely>=0.1.9",
     "coverage>=7.10.7",
     "pytest-cov>=7.0.0",
+    "freezegun>=1.5.5",
 ]
 lint = ["ruff>=0.9.3"]
 
