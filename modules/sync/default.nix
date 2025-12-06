@@ -48,6 +48,14 @@ let
       ++ lib.optional (cfg.verbosity != "") cfg.verbosity
       ++ cfg.extraArgs
       ++ builtins.concatMap (option: [
+        "-S"
+        option
+      ]) cfg.zfsSendOptions
+      ++ builtins.concatMap (option: [
+        "-R"
+        option
+      ]) cfg.zfsRecvOptions
+      ++ builtins.concatMap (option: [
         "-t"
         option
       ]) cfg.sshOptions
@@ -204,6 +212,24 @@ in
                 "pv -p -e -t -r -a -b -s {size}"
               ];
               description = "Programs to pipe to between send and recv.";
+            };
+
+            zfsSendOptions = lib.mkOption {
+              type = lib.types.listOf lib.types.str;
+              default = [ ];
+              example = [ "-w" ];
+              description = "Options passed to zfs send.";
+            };
+
+            zfsRecvOptions = lib.mkOption {
+              type = lib.types.listOf lib.types.str;
+              default = [ ];
+              example = [
+                "-s"
+                "-u"
+                "-F"
+              ];
+              description = "Options passed to zfs recv.";
             };
 
             verbosity = lib.mkOption {
