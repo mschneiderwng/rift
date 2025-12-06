@@ -176,7 +176,7 @@ def test_prune():
         ],
     )
 
-    result = runner.invoke(prune, ["rpool", "--keep", 2, "rift_*"])
+    result = runner.invoke(prune, ["rpool", "--keep", "rift_*", 2])
 
     if result.stderr.strip():
         raise RuntimeError(result.stderr)

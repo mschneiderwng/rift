@@ -296,8 +296,8 @@ def list_snapshots(dataset, regex, snapshots, bookmarks, verbose):
     "--keep",
     nargs=2,  # expect 2 arguments per use: e.g. "24 .*_hourly"
     multiple=True,  # allow repeating the option
-    type=(int, str),  # types for the 2 arguments
-    help="Retention rule (e.g. '--keep 24 rift_.*_hourly --keep 4 rift_.*_weekly')",
+    type=(str, int),  # types for the 2 arguments
+    help="Retention rule (e.g. '--keep rift_.*_hourly 24 --keep rift_.*_weekly 4')",
 )
 @dry_run_option()
 @verbose_option()
@@ -308,7 +308,7 @@ def prune(dataset, keep, dry_run, verbose):
         remote, path = dataset
         dataset: Dataset = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
 
-        policy = {regex: count for count, regex in keep}
+        policy = {regex: count for regex, count in keep}
         rift.datasets.prune(dataset=dataset, policy=policy, dry_run=dry_run)
 
 

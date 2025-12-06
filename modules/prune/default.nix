@@ -31,8 +31,8 @@ let
     lib.lists.flatten (
       lib.mapAttrsToList (tag: keep: [
         "--keep"
-        (toString keep)
         "rift_.*_${tag}"
+        (toString keep)
       ]) policy
     );
 

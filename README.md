@@ -38,7 +38,7 @@ rift snapshot --tag weekly src/data
 ```
 ## Destroy old snapshots
 ```bash
-rift prune --keep 24 hourly --keep 4 rift_.*_weekly --keep 0 rift_.*_frequently src/data
+rift prune --keep rift_.*_hourly 24 --keep rift_.*_weekly 4 --keep rift_.*_frequently 0 src/data
 ```
 
 # Systemd
