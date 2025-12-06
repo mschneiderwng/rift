@@ -180,7 +180,6 @@
               src = ./.;
               propagatedBuildInputs = [
                 pkgs.zfs
-                pkgs.mbuffer
                 python.pkgs.attrs
                 python.pkgs.click
                 python.pkgs.multimethod
