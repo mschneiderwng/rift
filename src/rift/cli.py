@@ -11,7 +11,7 @@ import click
 import structlog
 
 import rift.datasets
-from rift.async_commands import SystemRunner
+from rift.commands import SystemRunner
 from rift.datasets import Dataset, Remote
 from rift.snapshots import Bookmark, Snapshot
 from rift.zfs import ZfsBackend
