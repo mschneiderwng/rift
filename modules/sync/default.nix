@@ -51,6 +51,10 @@ let
         "-t"
         option
       ]) cfg.sshOptions
+      ++ builtins.concatMap (pipe: [
+        "-p"
+        pipe
+      ]) cfg.pipes
       ++ [
         "${dataset}"
         "${remote}/${dataset}"
@@ -190,13 +194,16 @@ in
             filter = lib.mkOption {
               type = lib.types.str;
               description = ''A regex matching the snapshots to be sent.'';
-              default = ''rift_.*_.*(?<!frequently)$''; # all but frequently
+              default = "rift_.*_.*(?<!frequently)$"; # all but frequently
             };
 
-            bwlimit = lib.mkOption {
-              type = lib.types.str;
-              description = ''Bandwidth limit in bytes/kbytes/etc per second on the source transfer (see mbuffer).'';
-              default = "";
+            pipes = lib.mkOption {
+              type = lib.types.listOf lib.types.str;
+              default = [ ];
+              example = [
+                "pv -p -e -t -r -a -b -s {size}"
+              ];
+              description = "Programs to pipe to between send and recv.";
             };
 
             verbosity = lib.mkOption {
