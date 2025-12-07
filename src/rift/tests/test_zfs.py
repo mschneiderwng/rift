@@ -254,7 +254,7 @@ def test_bookmarks_remote():
 def test_send_resume():
     runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    stream = dataset.send("token")
+    stream = dataset.send("token", send_options=("-w",))
     assert_that(stream, equal_to(ZfsStream(("zfs", "send", "-w", "-t", "token"), runner)))
 
 
@@ -263,7 +263,7 @@ def test_send_incremental_from_bookmark():
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     anchor = Bookmark(fqn="source/A#s1", guid="uuid:source/A@s1", createtxg=1)
     snapshot = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
-    stream = dataset.send(snapshot, anchor)
+    stream = dataset.send(snapshot, anchor, send_options=("-w",))
     assert_that(
         stream,
         equal_to(ZfsStream(("zfs", "send", "-w", "-i", "source/A#s1", "source/A@s2"), runner)),
@@ -275,7 +275,7 @@ def test_send_incremental_from_snapshot():
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     anchor = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
     snapshot = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
-    stream = dataset.send(snapshot, anchor)
+    stream = dataset.send(snapshot, anchor, send_options=("-w",))
     assert_that(
         stream,
         equal_to(ZfsStream(("zfs", "send", "-w", "-i", "source/A@s1", "source/A@s2"), runner)),
@@ -286,14 +286,14 @@ def test_send_full():
     runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
     snapshot = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
-    stream = dataset.send(snapshot)
+    stream = dataset.send(snapshot, send_options=("-w",))
     assert_that(stream, equal_to(ZfsStream(("zfs", "send", "-w", "source/A@s1"), runner)))
 
 
 def test_recv():
     runner = RunnerMock()
     dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    dataset.recv(ZfsStream(("zfs", "send", "..."), runner), dry_run=False)
+    dataset.recv(ZfsStream(("zfs", "send", "..."), runner), recv_options=("-s", "-u", "-F"), dry_run=False)
     assert_that(
         runner.recorded,
         equal_to([("zfs", "send", "..."), ("zfs", "receive", "-s", "-u", "-F", "source/A")]),

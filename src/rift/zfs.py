@@ -96,21 +96,19 @@ class ZfsBackend(Backend):
             return False
 
     @multimethod
-    def send(self, token: str, *, send_options: tuple[str, ...] = ("-w",)) -> Stream:
+    def send(self, token: str, *, send_options: tuple[str, ...] = ()) -> Stream:
         """Create a resume stream"""
         return ZfsStream(ssh(self.remote) + ("zfs", "send", *send_options, "-t", token), self.runner)
 
     @multimethod
-    def send(
-        self, snapshot: Snapshot, ancestor: Snapshot | Bookmark, *, send_options: tuple[str, ...] = ("-w",)
-    ) -> Stream:
+    def send(self, snapshot: Snapshot, ancestor: Snapshot | Bookmark, *, send_options: tuple[str, ...] = ()) -> Stream:
         # use -i flag since we may want to filter intermediary snapshots
         return ZfsStream(
             ssh(self.remote) + ("zfs", "send", *send_options, "-i", ancestor.fqn, snapshot.fqn), self.runner
         )
 
     @multimethod
-    def send(self, snapshot: Snapshot, *, send_options: tuple[str, ...] = ("-w",)) -> Stream:
+    def send(self, snapshot: Snapshot, *, send_options: tuple[str, ...] = ()) -> Stream:
         """Create a full stream"""
         return ZfsStream(ssh(self.remote) + ("zfs", "send", *send_options, snapshot.fqn), self.runner)
 
@@ -118,7 +116,7 @@ class ZfsBackend(Backend):
         self,
         stream: Stream,
         *,
-        recv_options: tuple[str, ...] = ("-s", "-u", "-F"),
+        recv_options: tuple[str, ...] = (),
         pipes: Sequence[tuple[str, ...]] = (),
         dry_run: bool,
     ) -> None:
