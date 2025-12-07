@@ -24,7 +24,7 @@ class Stream:
     def to(
         self, target: "Dataset", *, recv_options: tuple[str, ...], pipes: Sequence[tuple[str, ...]] = (), dry_run: bool
     ):
-        target.recv(self, recv_options=recv_options, pipes=pipes, dry_run=dry_run)
+        target.recv(self, options=recv_options, pipes=pipes, dry_run=dry_run)
 
     def size(self) -> int:
         """Returns the estimated size of the stream in bytes"""
@@ -67,22 +67,22 @@ class Backend:
         raise NotImplementedError
 
     @multimethod
-    def send(self, token: str, *, send_options: tuple[str, ...]) -> Stream:
+    def send(self, token: str, *, options: tuple[str, ...]) -> Stream:
         """Create a resume stream"""
         raise NotImplementedError
 
     @multimethod
-    def send(self, snapshot: Snapshot, ancestor: Snapshot | Bookmark, *, send_options: tuple[str, ...]) -> Stream:
+    def send(self, snapshot: Snapshot, ancestor: Snapshot | Bookmark, *, options: tuple[str, ...]) -> Stream:
         """Create an incremental stream"""
         raise NotImplementedError
 
     @multimethod
-    def send(self, snapshot: Snapshot, *, send_options: tuple[str, ...]) -> Stream:
+    def send(self, snapshot: Snapshot, *, options: tuple[str, ...]) -> Stream:
         """Create a full stream"""
         raise NotImplementedError
 
     def recv(
-        self, stream: Stream, *, recv_options: tuple[str, ...], pipes: Sequence[tuple[str, ...]] = (), dry_run: bool
+        self, stream: Stream, *, options: tuple[str, ...], pipes: Sequence[tuple[str, ...]] = (), dry_run: bool
     ) -> None:
         """Consume a stream to produce a snapshot on the target (self)"""
         raise NotImplementedError
@@ -141,25 +141,25 @@ class Dataset:
         return self.backend.exists()
 
     @multimethod
-    def send(self, token: str, *, send_options: tuple[str, ...]) -> Stream:
+    def send(self, token: str, *, options: tuple[str, ...]) -> Stream:
         """Create a resume stream"""
-        return self.backend.send(token, send_options=send_options)
+        return self.backend.send(token, options=options)
 
     @multimethod
-    def send(self, snapshot: Snapshot, ancestor: Snapshot | Bookmark, *, send_options: tuple[str, ...]) -> Stream:
+    def send(self, snapshot: Snapshot, ancestor: Snapshot | Bookmark, *, options: tuple[str, ...]) -> Stream:
         """Create an incremental stream"""
-        return self.backend.send(snapshot, ancestor, send_options=send_options)
+        return self.backend.send(snapshot, ancestor, options=options)
 
     @multimethod
-    def send(self, snapshot: Snapshot, *, send_options: tuple[str, ...]) -> Stream:
+    def send(self, snapshot: Snapshot, *, options: tuple[str, ...]) -> Stream:
         """Create a full stream"""
-        return self.backend.send(snapshot, send_options=send_options)
+        return self.backend.send(snapshot, options=options)
 
     def recv(
-        self, stream: Stream, *, recv_options: tuple[str, ...], pipes: Sequence[tuple[str, ...]] = (), dry_run: bool
+        self, stream: Stream, *, options: tuple[str, ...], pipes: Sequence[tuple[str, ...]] = (), dry_run: bool
     ) -> None:
         """Consume a stream to produce a snapshot on the target (self)"""
-        self.backend.recv(stream=stream, recv_options=recv_options, pipes=pipes, dry_run=dry_run)
+        self.backend.recv(stream=stream, options=options, pipes=pipes, dry_run=dry_run)
 
     def resume_token(self) -> Optional[str]:
         """Returns a resume token of a previously interrupted recv"""
@@ -206,7 +206,7 @@ def send(
         raise FileNotFoundError(f"snapshot '{snapshot.fqn}' not in source '{source.fqn}'")
 
     if not target.exists():
-        stream = source.send(snapshot, send_options=send_options)
+        stream = source.send(snapshot, options=send_options)
         log.info(f"rift send (full) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
         return stream.to(target, recv_options=recv_options, pipes=pipes, dry_run=dry_run)
 
@@ -215,19 +215,19 @@ def send(
         return None
 
     elif (token := target.resume_token()) is not None:
-        stream = source.send(token, send_options=send_options)
+        stream = source.send(token, options=send_options)
         log.info(f"rift send (resume) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
         log.debug(f"resume send with token='{token}' [{sizeof_fmt(stream.size())}]")
         return stream.to(target, recv_options=recv_options, pipes=pipes, dry_run=dry_run)
 
     elif (base := ancestor(snapshot, source, target)) is not None:
-        stream = source.send(snapshot, base, send_options=send_options)
+        stream = source.send(snapshot, base, options=send_options)
         log.info(f"rift send (incremental) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
         log.debug(f"incremental send '{snapshot.fqn}' from base '{base.fqn}' [{sizeof_fmt(stream.size())}]")
         return stream.to(target, recv_options=recv_options, pipes=pipes, dry_run=dry_run)
 
     else:
-        stream = source.send(snapshot, send_options=send_options)
+        stream = source.send(snapshot, options=send_options)
         log.info(f"rift send (full) [{sizeof_fmt(stream.size())}] '{snapshot.fqn}' to '{target.fqn}'")
         return stream.to(target, recv_options=recv_options, pipes=pipes, dry_run=dry_run)
 

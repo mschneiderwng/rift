@@ -72,24 +72,24 @@ class InMemoryBackend(Backend):
         self.bookmarks_data.append(bookmark)
 
     @multimethod
-    def send(self, token: str, *, send_options: tuple[str, ...] = ("-w",)) -> Stream:
+    def send(self, token: str, *, options: tuple[str, ...] = ("-w",)) -> Stream:
         return ResumingInMemoryStream(self.snapshots_data[int(token)], token)
 
     @multimethod
     def send(
-        self, snapshot: Snapshot, ancestor: Snapshot | Bookmark, *, send_options: tuple[str, ...] = ("-w",)
+        self, snapshot: Snapshot, ancestor: Snapshot | Bookmark, *, options: tuple[str, ...] = ("-w",)
     ) -> Stream:
         return IncrementalInMemoryStream(snapshot, ancestor)
 
     @multimethod
-    def send(self, snapshot: Snapshot, *, send_options: tuple[str, ...] = ("-w",)) -> Stream:
+    def send(self, snapshot: Snapshot, *, options: tuple[str, ...] = ("-w",)) -> Stream:
         return FullInMemoryStream(snapshot)
 
     def recv(
         self,
         stream: Stream,
         *,
-        recv_options: tuple[str, ...] = ("-s", "-u"),
+        options: tuple[str, ...] = ("-s", "-u"),
         pipes: Sequence[tuple[str, ...]] = (),
         dry_run: bool,
     ) -> None:
