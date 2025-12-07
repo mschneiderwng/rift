@@ -37,6 +37,7 @@ class ZfsStream(Stream):
         For example, `("zfs", "send", "-i", "src/data@snap1", "src/data@snap2")`
     :param runner: A way to execute shell commands.
     """
+
     args: tuple[str, ...]
     runner: Runner
 
@@ -197,7 +198,7 @@ class ZfsBackend(Backend):
         :param dry_run: Boolean flag to determine if the operation should be executed as a dry run.
         """
         assert isinstance(stream, ZfsStream), f"do not know how to recv {stream}"
-        self.cache_clear() # invalidate caches
+        self.cache_clear()  # invalidate caches
         # construct zfs recv command
         args = ssh(self.remote) + ("zfs", "receive", *options, self.path) + (("-n", "-v") if dry_run else ())
         # replace templates in piped commands
@@ -231,7 +232,7 @@ class ZfsBackend(Backend):
         if len(snapshots) == 0:
             return
 
-        self.cache_clear() # invalidate caches
+        self.cache_clear()  # invalidate caches
         # maps [s1,s2] to "source/A@s1,s2"
         fqns = f"{self.path}@" + ",".join(snapshots)
         # append -n and -v flags if dry_run is enabled

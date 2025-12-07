@@ -76,9 +76,7 @@ class InMemoryBackend(Backend):
         return ResumingInMemoryStream(self.snapshots_data[int(token)], token)
 
     @multimethod
-    def send(
-        self, snapshot: Snapshot, ancestor: Snapshot | Bookmark, *, options: tuple[str, ...] = ("-w",)
-    ) -> Stream:
+    def send(self, snapshot: Snapshot, ancestor: Snapshot | Bookmark, *, options: tuple[str, ...] = ("-w",)) -> Stream:
         return IncrementalInMemoryStream(snapshot, ancestor)
 
     @multimethod
@@ -402,6 +400,16 @@ def test_sync_filtered():
     # sync newer from source to target
     sync(source, target, regex="rift_.*", dry_run=False)
     assert_that(target.snapshots(), contains_exactly(s1, s3))
+
+
+def test_sync_target_contains_wrong_snapshot():
+    s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
+    s2 = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
+    source = Dataset(InMemoryBackend("source/A", snapshots_data=[s1]))
+    target = Dataset(InMemoryBackend("target/backups/A", snapshots_data=[s2]))
+
+    with pytest.raises(RuntimeError):
+        sync(source, target, dry_run=False)
 
 
 def test_prune():
