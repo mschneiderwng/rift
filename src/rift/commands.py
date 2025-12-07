@@ -32,6 +32,7 @@ class Runner:
     def run(self, command: Sequence[str], *others: Sequence[str]) -> str:
         """
         Run shell commands. If more than one command is provided, the commands will be piped and the output of the last command returned.
+        :rtype: str
         """
         raise NotImplementedError
 

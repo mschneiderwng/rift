@@ -13,6 +13,15 @@ from rift.snapshots import Bookmark, Snapshot
 
 
 def ssh(remote: Optional[Remote]) -> tuple[str, ...]:
+    """
+    Builds an SSH command as a tuple of strings based on the provided remote details.
+
+    This function generates a tuple representing the SSH command to connect to a
+    given remote host. If the remote is not provided, it returns an empty tuple.
+
+    :param remote: Optional remote connection configuration containing host and options.
+    :return: A tuple of strings representing the constructed SSH command.
+    """
     if remote is None:
         return ()
     return ("ssh", remote.host) + sum((("-o", o) for o in remote.options), ()) + ("--",)
@@ -20,18 +29,26 @@ def ssh(remote: Optional[Remote]) -> tuple[str, ...]:
 
 @frozen(slots=False)
 class ZfsStream(Stream):
+    """
+    Represents ZFS data stream i.e., the beginning of the ZFS send/recv pipe. For example,
+    `zfs send -i src/data@snap1 src/data@snap2`.
+
+    :param args: The `zfs send` command arguments as a tuple of strings.
+        For example, `("zfs", "send", "-i", "src/data@snap1", "src/data@snap2")`
+    :param runner: A way to execute shell commands.
+    """
     args: tuple[str, ...]
     runner: Runner
 
     def __attrs_post_init__(self):
-        # instance based caches since the @cache decorator operates on classes.
+        # instance-based caches since the @cache decorator operates on classes.
         object.__setattr__(self, "size", cache(self.size))
 
     def size(self) -> int:
         """Returns the estimated size of the stream in bytes"""
         log = structlog.get_logger()
         log.debug("getting estimate of snapshot (stream) size")
-        # get size estimate by running the command in --dry-run mode and parsing output
+        # get a size estimate by running the command in --dry-run mode and parsing output
         output = self.runner.run(self.args + ("-P", "-n", "-v")).split("\n")[-1].strip()
         m = re.match(r"size\s*(\d+)$", output)
         if not m:
@@ -44,15 +61,21 @@ class ZfsBackend(Backend):
     runner: Runner = field(kw_only=True)
 
     def __attrs_post_init__(self):
-        # instance based caches since the @cache decorator operates on classes.
+        # instance-based caches since the @cache decorator operates on classes.
         object.__setattr__(self, "snapshots", cache(self.snapshots))
         object.__setattr__(self, "bookmarks", cache(self.bookmarks))
         object.__setattr__(self, "resume_token", cache(self.resume_token))
 
     def snapshots(self) -> tuple[Snapshot, ...]:
         """
-        List all snapshots of this dataset
-        @:return None if dataset does not exist and a list of datasets otherwise
+        Retrieves all snapshots for the given filesystem. The snapshots are obtained by
+        running a `zfs list` command.
+
+        :raises RuntimeError: If the subprocess command fails during execution.
+        :raises NoSuchDatasetError: If the given filesystem does not exist.
+
+        :return: A tuple containing all parsed `Snapshot` objects from the retrieved
+            snapshot data. If no snapshots exist, an empty tuple is returned.
         """
         log = structlog.get_logger()
         log.debug(f"retrieving snapshots for '{self.fqn}'")
@@ -62,8 +85,14 @@ class ZfsBackend(Backend):
 
     def bookmarks(self) -> tuple[Bookmark, ...]:
         """
-        List all bookmarks of this dataset
-        @:return None if dataset does not exist and a list of bookmarks otherwise
+        Retrieves all bookmarks for the given filesystem. The bookmarks are obtained by
+        running a `zfs list` command.
+
+        :raises RuntimeError: If the subprocess command fails during execution.
+        :raises NoSuchDatasetError: If the given filesystem does not exist.
+
+        :return: A tuple containing all parsed `Bookmark` objects from the retrieved
+            bookmark data. If no bookmarks exist, an empty tuple is returned.
         """
         log = structlog.get_logger()
         log.debug(f"retrieving bookmarks for '{self.fqn}'")
@@ -72,7 +101,13 @@ class ZfsBackend(Backend):
         return () if len(result) == 0 else tuple(map(Bookmark.parse, result.split("\n")))
 
     def snapshot(self, name: str) -> None:
-        """Create a snapshot with the given name"""
+        """
+        Create a snapshot for the given ZFS filesystem path.
+
+        This method creates a snapshot of the ZFS filesystem using the provided name.
+
+        :param name: The name to assign to the snapshot.
+        """
         log = structlog.get_logger()
         log.info(f"creating snapshot '{self.fqn}@{name}'")
         self.cache_clear()  # invalidate caches
@@ -80,7 +115,12 @@ class ZfsBackend(Backend):
         self.runner.run(ssh(self.remote) + args)
 
     def bookmark(self, snapshot: str) -> None:
-        """Create a bookmark from the given snapshot"""
+        """
+        Bookmark a given snapshot to save its state. This function creates a permanent
+        bookmark for a specific ZFS snapshot.
+
+        :param snapshot: The name of the snapshot to create a bookmark for.
+        """
         log = structlog.get_logger()
         log.info(f"creating bookmark '{self.fqn}#{snapshot}'")
         self.cache_clear()  # invalidate caches
@@ -88,7 +128,13 @@ class ZfsBackend(Backend):
         self.runner.run(ssh(self.remote) + args)
 
     def exists(self) -> bool:
-        """Returns true if the dataset exists"""
+        """
+        Determines whether the dataset exists.
+
+        :return: A boolean value indicating whether the dataset exists.
+        """
+        # This method checks for the presence of the dataset by attempting to retrieve
+        # its snapshots. If the dataset does not exist, self.snapshots() raises a `NoSuchDatasetError`.
         try:
             self.snapshots()
             return True
@@ -97,19 +143,40 @@ class ZfsBackend(Backend):
 
     @multimethod
     def send(self, token: str, *, options: tuple[str, ...] = ()) -> Stream:
-        """Create a resume stream"""
+        """
+        Constructs a resumeable ZFS send stream to a remote destination. It stores the first part of the pipe, e.g.
+        `ssh user@remote -- zfs send -t token` along with additional ZFS options.
+
+        :param token: The zfs resume token.
+        :param options: Additional options for the ZFS send command.
+        :return: A `Stream` object encapsulating the constructed ZFS send stream.
+        """
         return ZfsStream(ssh(self.remote) + ("zfs", "send", *options, "-t", token), self.runner)
 
     @multimethod
     def send(self, snapshot: Snapshot, ancestor: Snapshot | Bookmark, *, options: tuple[str, ...] = ()) -> Stream:
+        """
+        Constructs an incremental ZFS send stream to a remote destination. It stores the first part of the pipe, e.g.
+        `ssh user@remote -- zfs send -i src/data@snap1 src/data@snap2` along with additional ZFS options.
+
+        :param snapshot: The ZFS snapshot to be sent.
+        :param ancestor: The ZFS snapshot or bookmark indicating the ancestor snapshot for an incremental send.
+        :param options: Additional options for the ZFS send command.
+        :return: A `Stream` object encapsulating the constructed ZFS send stream.
+        """
         # use -i flag since we may want to filter intermediary snapshots
-        return ZfsStream(
-            ssh(self.remote) + ("zfs", "send", *options, "-i", ancestor.fqn, snapshot.fqn), self.runner
-        )
+        return ZfsStream(ssh(self.remote) + ("zfs", "send", *options, "-i", ancestor.fqn, snapshot.fqn), self.runner)
 
     @multimethod
     def send(self, snapshot: Snapshot, *, options: tuple[str, ...] = ()) -> Stream:
-        """Create a full stream"""
+        """
+        Constructs a full ZFS send stream to a remote destination. It stores the first part of the pipe, e.g.
+        `ssh user@remote -- zfs send src/data@snap1` along with additional ZFS options.
+
+        :param snapshot: The ZFS snapshot to be sent.
+        :param options: Additional options for the ZFS send command.
+        :return: A `Stream` object encapsulating the constructed ZFS send stream.
+        """
         return ZfsStream(ssh(self.remote) + ("zfs", "send", *options, snapshot.fqn), self.runner)
 
     def recv(
@@ -120,15 +187,33 @@ class ZfsBackend(Backend):
         pipes: Sequence[tuple[str, ...]] = (),
         dry_run: bool,
     ) -> None:
+        """
+        Constructs the command for a ZFS send/recv pipe. The stream contains the beginning of the pipe, e.g.
+        `zfs send src/data@snap1` and this method appends `zfs recv dest/data` along with additional ZFS options.
+
+        :param stream: The `zfs send` command to be received.
+        :param options: Additional ZFS receive options provided as a tuple of strings.
+        :param pipes: Sequence of additional commands to pipe in between the send and receive commands.
+        :param dry_run: Boolean flag to determine if the operation should be executed as a dry run.
+        """
         assert isinstance(stream, ZfsStream), f"do not know how to recv {stream}"
-        self.cache_clear()
+        self.cache_clear() # invalidate caches
+        # construct zfs recv command
         args = ssh(self.remote) + ("zfs", "receive", *options, self.path) + (("-n", "-v") if dry_run else ())
-        # replace templates
+        # replace templates in piped commands
         pipes = [tuple(map(lambda arg: arg.format(size=stream.size()), pipe)) for pipe in pipes]
+        # execute all commands (zfs send | pipe1 | pipe2 | zfs recv)
         self.runner.run(stream.args, *pipes, args)
 
     def resume_token(self) -> Optional[str]:
-        """Returns a resume token of a previously interrupted recv"""
+        """
+        Retrieve the resume token for a ZFS dataset.
+
+        The resume token can be used to resume a previously interrupted ZFS receive operation.
+        If no token exists, the method returns None.
+
+        :returns: The resume token as a string if it exists, otherwise None.
+        """
         log = structlog.get_logger()
         log.debug(f"looking for resume token on {self.fqn}")
         args = ("zfs", "get", "-H", "-o", "value", "receive_resume_token", self.path)
@@ -136,16 +221,28 @@ class ZfsBackend(Backend):
         return None if result == "-" else result
 
     def destroy(self, snapshots: Collection[str], dry_run: bool) -> None:
-        """Consume a stream to produce a snapshot on the target (self)"""
+        """
+        Destroy specified ZFS snapshots using `zfs destroy`. If the dry_run option is enabled, the method will
+        simulate the destruction operation without actually performing it.
+
+        :param snapshots: A collection of snapshot names to be destroyed. Must not be empty.
+        :param dry_run: Boolean flag to determine if the operation should be executed as a dry run.
+        """
         if len(snapshots) == 0:
             return
 
-        self.cache_clear()
+        self.cache_clear() # invalidate caches
+        # maps [s1,s2] to "source/A@s1,s2"
         fqns = f"{self.path}@" + ",".join(snapshots)
+        # append -n and -v flags if dry_run is enabled
         args = ("zfs", "destroy") + (("-n", "-v") if dry_run else ()) + (fqns,)
+        # execute destroy command (zfs destroy source/A@s1,s2)
         self.runner.run(ssh(self.remote) + args)
 
     def cache_clear(self):
+        """
+        Clears all cached properties of the object.
+        """
         getattr(self, "snapshots").cache_clear()
         getattr(self, "bookmarks").cache_clear()
         getattr(self, "resume_token").cache_clear()
