@@ -36,7 +36,7 @@ Usage: rift send [OPTIONS] SOURCE TARGET
       rift send src/data@snap1 user@remote:back/src/data -p "mbuffer -r 1M" -p "pv -s {size}"
 
 Options:
-  -p, --pipes TEXT              Command which zfs send should pipe to before zfs recv.
+  -p, --pipe TEXT               Command which zfs send should pipe to before zfs recv.
   -S, --zfs-send-option TEXT    Options passed to zfs send. Can be used multiple times (default: '-w').
   -R, --zfs-recv-option TEXT    Options passed to zfs recv. Can be used multiple times (default: '-s', '-u', '-F').
   -s, --source-ssh-option TEXT  ssh options like -o "Compression=yes" for source. Can be used multiple times.
@@ -73,7 +73,7 @@ Usage: rift sync [OPTIONS] SOURCE TARGET
 
 Options:
   -f, --filter TEXT             Sync only snapshots which match regex (default: 'rift.*').
-  -p, --pipes TEXT              Command which zfs send should pipe to before zfs recv.
+  -p, --pipe TEXT               Command which zfs send should pipe to before zfs recv.
   -S, --zfs-send-option TEXT    Options passed to zfs send. Can be used multiple times (default: '-w').
   -R, --zfs-recv-option TEXT    Options passed to zfs recv. Can be used multiple times (default: '-s', '-u' '-F').
   -s, --source-ssh-option TEXT  ssh options like -o "Compression=yes" for source. Can be used multiple times.
