@@ -182,11 +182,9 @@ def sync(
         if s in to_sync:
             log.debug(f"[to be sync    ] {s.name}")
         elif not p.match(s.name):
-            log.debug(f"[filtered      ] {s.name}")
+            log.debug(f"[excluded      ] {s.name}")
         elif s in missing:
             log.debug(f"[too old       ] {s.name}")
-        elif not p.match(s.name):
-            log.debug(f"[excluded      ] {s.name}")
         else:
             log.debug(f"[already synced] {s.name}")
 

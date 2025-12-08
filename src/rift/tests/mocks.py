@@ -114,9 +114,12 @@ class InMemoryFS(Runner):
         assert len(paths) == len(set(paths)), "all datasets must have unique paths"
         return InMemoryFS(dict(zip(paths, datasets)))
 
-    def find(self, path: str) -> InMemoryDataset:
+    def find(self, path: str, create_if_missing: bool = False) -> InMemoryDataset:
         if path not in self.datasets:
-            raise NoSuchDatasetError(f"dataset {path} does not exist", None)
+            if create_if_missing:
+                self.datasets[path] = InMemoryDataset(path)
+            else:
+                raise NoSuchDatasetError(f"dataset {path} does not exist", None)
         return self.datasets[path]
 
     def run(self, command: Sequence[str], *others: Sequence[str]) -> str:
@@ -160,7 +163,7 @@ class InMemoryFS(Runner):
             src_path, snapshot_name = fqn.split("@")
             dst_path = next((part for part in commands[-1] if "/" in part))  # find dataset path in commands
             snapshot = self.find(src_path).find(fqn)
-            self.find(dst_path).recv(snapshot)
+            self.find(dst_path, create_if_missing=True).recv(snapshot)
             return ""
 
         # match zfs send ... | zfs receive
@@ -169,7 +172,7 @@ class InMemoryFS(Runner):
             src_path, snapshot_name = fqn.split("@")
             dst_path = next((part for part in commands[-1] if "/" in part))  # find dataset path in commands
             snapshot = self.find(src_path).find(fqn)
-            self.find(dst_path).recv(snapshot)
+            self.find(dst_path, create_if_missing=True).recv(snapshot)
             return ""
 
         # match zfs send pool/A@s1 -P -n -v

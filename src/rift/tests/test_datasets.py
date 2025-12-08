@@ -2,7 +2,7 @@ import logging
 
 import pytest
 import structlog
-from precisely import assert_that, contains_exactly, equal_to, includes
+from precisely import assert_that, contains_exactly, equal_to, includes, not_
 
 from rift.datasets import Dataset, Remote
 from rift.replication import ancestor, prune, send, sync
@@ -88,6 +88,36 @@ def test_send_full():
 
     # assert that s1 was a full sent
     assert_that(fs.recorded, includes("zfs send pool/A@s1 | zfs receive pool/B"))
+
+
+def test_send_target_does_not_exist():
+    fs = InMemoryFS.of(InMemoryDataset("pool/A").snapshot("s1"))
+    source = Dataset(path="pool/A", runner=fs)
+    target = Dataset(path="pool/B", runner=fs)
+
+    # send s1 from source to target
+    s1 = source.find("s1")
+    send(s1, source, target, dry_run=False)
+    assert_that({s.guid for s in target.snapshots()}, equal_to({s.guid for s in source.snapshots()}))
+
+    # assert that s1 was a full sent
+    assert_that(fs.recorded, includes("zfs send pool/A@s1 | zfs receive pool/B"))
+
+
+def test_send_snapshot_already_on_target():
+    poolA = InMemoryDataset("pool/A").snapshot("s1")
+    poolB = InMemoryDataset("pool/B").recv(poolA.find("pool/A@s1"))
+    fs = InMemoryFS.of(poolA, poolB)
+    source = Dataset(path="pool/A", runner=fs)
+    target = Dataset(path="pool/B", runner=fs)
+
+    # send s1 from source to target, but it is already there
+    s1 = source.find("s1")
+    send(s1, source, target, dry_run=False)
+    assert_that({s.guid for s in target.snapshots()}, equal_to({s.guid for s in source.snapshots()}))
+
+    # assert that s1 was a full sent
+    assert_that(fs.recorded, not_(includes("zfs send pool/A@s1 | zfs receive pool/B")))
 
 
 def test_send_incremental():
@@ -199,18 +229,19 @@ def test_sync():
 
 
 def test_sync_filter():
-    poolA = InMemoryDataset("pool/A").snapshot("s1", "s2", "s3")
-    poolB = InMemoryDataset("pool/B").recv(poolA.find("pool/A@s1"))
+    poolA = InMemoryDataset("pool/A").snapshot("s1", "s2", "s3", "f4", "s5")
+    poolB = InMemoryDataset("pool/B").recv(poolA.find("pool/A@s2"))
     fs = InMemoryFS.of(poolA, poolB)
 
     source = Dataset(path="pool/A", runner=fs)
     target = Dataset(path="pool/B", runner=fs)
 
-    sync(source, target, regex=".*3", dry_run=False)
+    sync(source, target, regex="s.", dry_run=False)
 
-    s1 = source.find("s1")
+    s2 = target.find("s2")
     s3 = source.find("s3")
-    assert_that({s.guid for s in target.snapshots()}, equal_to({s1.guid, s3.guid}))
+    s5 = source.find("s5")
+    assert_that({s.guid for s in target.snapshots()}, equal_to({s2.guid, s3.guid, s5.guid}))
 
 
 def test_sync_target_contains_wrong_snapshot():
