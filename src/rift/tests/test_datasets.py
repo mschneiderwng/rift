@@ -15,6 +15,7 @@ structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(logging.
 This file contains high level tests (mostly not checking zfs shell commands).
 """
 
+
 def test_path():
     fs = InMemoryFS.of(InMemoryDataset("pool/A", "user@remote"))
     dataset = Dataset(path="pool/A", remote=Remote("user@remote"), runner=fs)
@@ -66,7 +67,6 @@ def test_find():
 
 def test_send_without_source_snapshot():
     fs = InMemoryFS.of(InMemoryDataset("pool/A"), InMemoryDataset("pool/B"))
-
     source = Dataset(path="pool/A", runner=fs)
     target = Dataset(path="pool/B", runner=fs)
 
@@ -78,7 +78,6 @@ def test_send_without_source_snapshot():
 
 def test_send_full():
     fs = InMemoryFS.of(InMemoryDataset("pool/A").snapshot("s1"), InMemoryDataset("pool/B"))
-
     source = Dataset(path="pool/A", runner=fs)
     target = Dataset(path="pool/B", runner=fs)
 

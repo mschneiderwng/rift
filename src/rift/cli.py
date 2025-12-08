@@ -140,7 +140,9 @@ def main(max_content_width=180):
 @click.command()
 @click.argument("source", type=SNAPSHOT_TYPE)
 @click.argument("target", type=DATASET_TYPE)
-@click.option("--pipes", "-p", type=str, multiple=True, help="Command which zfs send should pipe to before zfs recv.")
+@click.option(
+    "--pipe", "-p", "pipes", type=str, multiple=True, help="Command which zfs send should pipe to before zfs recv."
+)
 @click.option(
     "--zfs-send-option",
     "-S",
@@ -235,7 +237,9 @@ def send(
     default="rift.*",
     help="Sync only snapshots which match regex (default: 'rift.*').",
 )
-@click.option("--pipes", "-p", type=str, multiple=True, help="Command which zfs send should pipe to before zfs recv.")
+@click.option(
+    "--pipe", "-p", "pipes", type=str, multiple=True, help="Command which zfs send should pipe to before zfs recv."
+)
 @click.option(
     "--zfs-send-option",
     "-S",

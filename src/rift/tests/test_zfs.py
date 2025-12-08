@@ -13,6 +13,7 @@ structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(logging.
 This file contains low level tests; checking zfs shell commands.
 """
 
+
 def test_snapshot_list():
     fs = InMemoryFS.of(InMemoryDataset("pool/A", "user@remote"))
     dataset = Dataset(path="pool/A", remote=Remote("user@remote"), runner=fs)
