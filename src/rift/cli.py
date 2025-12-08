@@ -7,10 +7,9 @@ from datetime import datetime
 import click
 import structlog
 
-import rift.datasets
+import rift.replication
 from rift.commands import SystemRunner
 from rift.datasets import Dataset, Remote
-from rift.zfs import ZfsBackend
 
 runner = SystemRunner()
 
@@ -204,7 +203,7 @@ def send(
         # parse source
         host, path, snapshot_name = source
         remote = None if host is None else Remote(host, source_ssh_options)
-        source = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
+        source = Dataset(path=path, remote=remote, runner=runner)
 
         # find snapshot by name
         snapshot = source.find(snapshot_name)
@@ -212,10 +211,10 @@ def send(
         # parse target
         host, path = target
         remote = None if host is None else Remote(host, target_ssh_options)
-        target = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
+        target = Dataset(path=path, remote=remote, runner=runner)
 
         pipes: list[tuple[str]] = [tuple(p.split(" ")) for p in pipes]
-        return rift.datasets.send(
+        return rift.replication.send(
             snapshot,
             source,
             target,
@@ -304,15 +303,15 @@ def sync(
         # parse source
         host, path = source
         remote = None if host is None else Remote(host, source_ssh_options)
-        source = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
+        source = Dataset(path=path, remote=remote, runner=runner)
 
         # parse target
         host, path = target
         remote = None if host is None else Remote(host, target_ssh_options)
-        target = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
+        target = Dataset(path=path, remote=remote, runner=runner)
 
         pipes: list[tuple[str]] = [tuple(p.split(" ")) for p in pipes]
-        rift.datasets.sync(
+        rift.replication.sync(
             source,
             target,
             regex=regex,
@@ -362,7 +361,7 @@ def snapshot(dataset, name, bookmark, time_format, ssh_options, verbose):
         # parse dataset
         host, path = dataset
         remote = None if host is None else Remote(host, ssh_options)
-        dataset: Dataset = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
+        dataset: Dataset = Dataset(path=path, remote=remote, runner=runner)
 
         # create snapshot
         dataset.snapshot(name)
@@ -409,10 +408,10 @@ def prune(dataset, keep, ssh_options, dry_run, verbose):
         # parse dataset
         host, path = dataset
         remote = None if host is None else Remote(host, ssh_options)
-        dataset: Dataset = Dataset(ZfsBackend(path=path, remote=remote, runner=runner))
+        dataset: Dataset = Dataset(path=path, remote=remote, runner=runner)
 
         policy = {regex: count for regex, count in keep}
-        rift.datasets.prune(dataset=dataset, policy=policy, dry_run=dry_run)
+        rift.replication.prune(dataset=dataset, policy=policy, dry_run=dry_run)
 
 
 main.add_command(send)

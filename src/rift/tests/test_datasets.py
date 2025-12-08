@@ -4,35 +4,38 @@ import pytest
 import structlog
 from precisely import assert_that, contains_exactly, equal_to, includes
 
-from rift.datasets import Dataset, ancestor, prune, send, sync
+from rift.datasets import Dataset, Remote
+from rift.replication import ancestor, prune, send, sync
 from rift.snapshots import Bookmark, Snapshot
 from rift.tests.mocks import InMemoryDataset, InMemoryFS, fqn2token
-from rift.zfs import Remote, ZfsBackend
 
 structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING))
 
+"""
+This file contains high level tests (mostly not checking zfs shell commands).
+"""
 
 def test_path():
     fs = InMemoryFS.of(InMemoryDataset("pool/A", "user@remote"))
-    dataset = Dataset(ZfsBackend(path="pool/A", remote=Remote("user@remote"), runner=fs))
+    dataset = Dataset(path="pool/A", remote=Remote("user@remote"), runner=fs)
     assert_that(dataset.path, equal_to("pool/A"))
 
 
 def test_fqn():
     fs = InMemoryFS.of(InMemoryDataset("pool/A"))
-    dataset = Dataset(ZfsBackend(path="pool/A", runner=fs))
+    dataset = Dataset(path="pool/A", runner=fs)
     assert_that(dataset.fqn, equal_to("pool/A"))
 
 
 def test_fqn_remote():
     fs = InMemoryFS.of(InMemoryDataset("pool/A", "user@remote"))
-    dataset = ZfsBackend(path="pool/A", remote=Remote("user@remote"), runner=fs)
+    dataset = Dataset(path="pool/A", remote=Remote("user@remote"), runner=fs)
     assert_that(dataset.fqn, equal_to("user@remote:pool/A"))
 
 
 def test_snapshot():
     fs = InMemoryFS.of(InMemoryDataset("pool/A"))
-    src = Dataset(ZfsBackend(path="pool/A", runner=fs))
+    src = Dataset(path="pool/A", runner=fs)
     src.snapshot("s1")
     assert_that(src.snapshots(), contains_exactly(Snapshot(fqn="pool/A@s1", guid="uuid:pool/A@s1", createtxg=896)))
     src.snapshot("s2")
@@ -47,14 +50,14 @@ def test_snapshot():
 
 def test_bookmark():
     fs = InMemoryFS.of(InMemoryDataset("pool/A").snapshot("s1", "s2"))
-    src = Dataset(ZfsBackend(path="pool/A", runner=fs))
+    src = Dataset(path="pool/A", runner=fs)
     src.bookmark("s2")
     assert_that(src.bookmarks(), contains_exactly(Bookmark(fqn="pool/A#s2", guid="uuid:pool/A@s2", createtxg=897)))
 
 
 def test_find():
     fs = InMemoryFS.of(InMemoryDataset("pool/A").snapshot("s1", "s2"))
-    src = Dataset(ZfsBackend(path="pool/A", runner=fs))
+    src = Dataset(path="pool/A", runner=fs)
     assert_that(src.find("s1"), equal_to(Snapshot(fqn="pool/A@s1", guid="uuid:pool/A@s1", createtxg=896)))
     assert_that(src.find("s2"), equal_to(Snapshot(fqn="pool/A@s2", guid="uuid:pool/A@s2", createtxg=897)))
     with pytest.raises(ValueError):
@@ -64,8 +67,8 @@ def test_find():
 def test_send_without_source_snapshot():
     fs = InMemoryFS.of(InMemoryDataset("pool/A"), InMemoryDataset("pool/B"))
 
-    source = Dataset(ZfsBackend(path="pool/A", runner=fs))
-    target = Dataset(ZfsBackend(path="pool/B", runner=fs))
+    source = Dataset(path="pool/A", runner=fs)
+    target = Dataset(path="pool/B", runner=fs)
 
     # try s1 from source to target without s1 being in source
     s1 = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
@@ -76,8 +79,8 @@ def test_send_without_source_snapshot():
 def test_send_full():
     fs = InMemoryFS.of(InMemoryDataset("pool/A").snapshot("s1"), InMemoryDataset("pool/B"))
 
-    source = Dataset(ZfsBackend(path="pool/A", runner=fs))
-    target = Dataset(ZfsBackend(path="pool/B", runner=fs))
+    source = Dataset(path="pool/A", runner=fs)
+    target = Dataset(path="pool/B", runner=fs)
 
     # send s1 from source to target
     s1 = source.find("s1")
@@ -93,8 +96,8 @@ def test_send_incremental():
     poolB = InMemoryDataset("pool/B").recv(poolA.find("pool/A@s1"))
     fs = InMemoryFS.of(poolA, poolB)
 
-    source = Dataset(ZfsBackend(path="pool/A", runner=fs))
-    target = Dataset(ZfsBackend(path="pool/B", runner=fs))
+    source = Dataset(path="pool/A", runner=fs)
+    target = Dataset(path="pool/B", runner=fs)
 
     # send s2 from source to target
     s2 = source.find("s2")
@@ -109,8 +112,8 @@ def test_send_resume():
     token = fqn2token("pool/A@s1")  # simulate a token by using the fqn
     fs = InMemoryFS.of(InMemoryDataset("pool/A").snapshot("s1"), InMemoryDataset("pool/B", token=token))
 
-    source = Dataset(ZfsBackend(path="pool/A", runner=fs))
-    target = Dataset(ZfsBackend(path="pool/B", runner=fs))
+    source = Dataset(path="pool/A", runner=fs)
+    target = Dataset(path="pool/B", runner=fs)
 
     # send s1 from source to target
     s1 = source.find("s1")
@@ -131,8 +134,8 @@ def test_ancestor():
     )
     fs = InMemoryFS.of(poolA, poolB)
 
-    source = Dataset(ZfsBackend(path="pool/A", runner=fs))
-    target = Dataset(ZfsBackend(path="pool/B", runner=fs))
+    source = Dataset(path="pool/A", runner=fs)
+    target = Dataset(path="pool/B", runner=fs)
 
     s2 = source.find("s2")
     s4 = source.find("s4")
@@ -144,8 +147,8 @@ def test_ancestor_no_common():
     poolB = InMemoryDataset("pool/B").snapshot("s3", "s4")
     fs = InMemoryFS.of(poolA, poolB)
 
-    source = Dataset(ZfsBackend(path="pool/A", runner=fs))
-    target = Dataset(ZfsBackend(path="pool/B", runner=fs))
+    source = Dataset(path="pool/A", runner=fs)
+    target = Dataset(path="pool/B", runner=fs)
 
     s2 = source.find("s2")
     assert_that(ancestor(s2, source, target), equal_to(None))
@@ -163,8 +166,8 @@ def test_ancestor_bookmark():
     poolA.destroy("s2")
     fs = InMemoryFS.of(poolA, poolB)
 
-    source = Dataset(ZfsBackend(path="pool/A", runner=fs))
-    target = Dataset(ZfsBackend(path="pool/B", runner=fs))
+    source = Dataset(path="pool/A", runner=fs)
+    target = Dataset(path="pool/B", runner=fs)
 
     s2 = poolA.find("pool/A#s2")
     s4 = source.find("s4")
@@ -177,8 +180,8 @@ def test_sync_full():
 
     fs = InMemoryFS.of(poolA, poolB)
 
-    source = Dataset(ZfsBackend(path="pool/A", runner=fs))
-    target = Dataset(ZfsBackend(path="pool/B", runner=fs))
+    source = Dataset(path="pool/A", runner=fs)
+    target = Dataset(path="pool/B", runner=fs)
 
     sync(source, target, dry_run=False)
     assert_that({s.guid for s in target.snapshots()}, equal_to({s.guid for s in source.snapshots()}))
@@ -189,8 +192,8 @@ def test_sync():
     poolB = InMemoryDataset("pool/B").recv(poolA.find("pool/A@s1"))
     fs = InMemoryFS.of(poolA, poolB)
 
-    source = Dataset(ZfsBackend(path="pool/A", runner=fs))
-    target = Dataset(ZfsBackend(path="pool/B", runner=fs))
+    source = Dataset(path="pool/A", runner=fs)
+    target = Dataset(path="pool/B", runner=fs)
 
     sync(source, target, dry_run=False)
     assert_that({s.guid for s in target.snapshots()}, equal_to({s.guid for s in source.snapshots()}))
@@ -201,8 +204,8 @@ def test_sync_filter():
     poolB = InMemoryDataset("pool/B").recv(poolA.find("pool/A@s1"))
     fs = InMemoryFS.of(poolA, poolB)
 
-    source = Dataset(ZfsBackend(path="pool/A", runner=fs))
-    target = Dataset(ZfsBackend(path="pool/B", runner=fs))
+    source = Dataset(path="pool/A", runner=fs)
+    target = Dataset(path="pool/B", runner=fs)
 
     sync(source, target, regex=".*3", dry_run=False)
 
@@ -213,8 +216,8 @@ def test_sync_filter():
 
 def test_sync_target_contains_wrong_snapshot():
     fs = InMemoryFS.of(InMemoryDataset("pool/A").snapshot("s1"), InMemoryDataset("pool/B").snapshot("s2"))
-    source = Dataset(ZfsBackend(path="pool/A", runner=fs))
-    target = Dataset(ZfsBackend(path="pool/B", runner=fs))
+    source = Dataset(path="pool/A", runner=fs)
+    target = Dataset(path="pool/B", runner=fs)
 
     with pytest.raises(RuntimeError):
         sync(source, target, dry_run=False)
@@ -223,7 +226,7 @@ def test_sync_target_contains_wrong_snapshot():
 def test_prune():
     poolA = InMemoryDataset("pool/A").snapshot("s1_weekly", "s2_weekly", "s3_daily", "s4_monthly")
     fs = InMemoryFS.of(poolA)
-    dataset = Dataset(ZfsBackend(path="pool/A", runner=fs))
+    dataset = Dataset(path="pool/A", runner=fs)
 
     policy = {".*_daily": 5, ".*_weekly": 1, ".*_monthly": 0}
     prune(dataset, policy, dry_run=False)

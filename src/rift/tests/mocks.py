@@ -102,6 +102,7 @@ class InMemoryFS(Runner):
     Simulates an in-memory zfs file system for managing and manipulating datasets, aimed at
     testing or mocking behavior without interacting with real storage systems.
     """
+
     datasets: dict[str, InMemoryDataset] = Factory(dict)  # mapping from path to dataset
     recorded: list[str] = Factory(list)  # track calls to self.run
 
