@@ -12,6 +12,7 @@ class Snapshot:
     :param guid: The zfs guid property of the snapshot.
     :param createtxg: The zfs createtxg property of the snapshot.
     """
+
     fqn: str
     guid: str
     createtxg: int
@@ -37,6 +38,7 @@ class Bookmark:
     :param guid: The zfs guid property of the bookmark.
     :param createtxg: The zfs createtxg property of the bookmark.
     """
+
     fqn: str
     guid: str
     createtxg: int

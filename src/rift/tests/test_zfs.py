@@ -1,362 +1,237 @@
-from typing import Optional, Sequence
+import logging
 
-from attrs import Factory, define
-from precisely import assert_that, equal_to
+import structlog
+from precisely import assert_that, contains_exactly, equal_to, includes
 
-from rift.commands import NoSuchDatasetError, Runner
 from rift.snapshots import Bookmark, Snapshot
+from rift.tests.mocks import InMemoryDataset, InMemoryFS
 from rift.zfs import Remote, ZfsBackend, ZfsStream
 
+structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING))
 
-@define
-class RunnerMock(Runner):
-    recorded: list[Sequence[str]] = Factory(list)
-    returns: str = ""
-    raises: Optional[Exception] = None
 
-    def run(self, command: Sequence[str], *others: Sequence[str]) -> str:
-        self.recorded += [command] + list(others)
-        if self.raises is not None:
-            raise self.raises
-        return self.returns
+def test_snapshot_list():
+    fs = InMemoryFS.of(InMemoryDataset("pool/A", "user@remote"))
+    dataset = ZfsBackend(path="pool/A", remote=Remote("user@remote"), runner=fs)
+    dataset.snapshots()
+    assert_that(fs.recorded, equal_to(["ssh user@remote -- zfs list -pHt snapshot -o name,guid,createtxg pool/A"]))
 
-    def __hash__(self):
-        return hash(id(self))
+
+def test_snapshot_list_caching():
+    fs = InMemoryFS.of(InMemoryDataset("pool/A"))
+    dataset = ZfsBackend(path="pool/A", runner=fs)
+    dataset.snapshots()
+    dataset.snapshots()
+    assert_that(fs.recorded, equal_to(["zfs list -pHt snapshot -o name,guid,createtxg pool/A"]))
+
+
+def test_ssh_options():
+    fs = InMemoryFS.of(InMemoryDataset("pool/A", "user@remote"))
+    dataset = ZfsBackend(path="pool/A", remote=Remote("user@remote", ("Compression=yes",)), runner=fs)
+    dataset.snapshots()
+    assert_that(
+        fs.recorded,
+        equal_to(["ssh user@remote -o Compression=yes -- zfs list -pHt snapshot -o name,guid,createtxg pool/A"]),
+    )
+
+
+def test_bookmarks_list():
+    fs = InMemoryFS.of(InMemoryDataset("pool/A", "user@remote"))
+    dataset = ZfsBackend(path="pool/A", remote=Remote("user@remote"), runner=fs)
+    dataset.bookmarks()
+    assert_that(fs.recorded, equal_to(["ssh user@remote -- zfs list -pHt bookmark -o name,guid,createtxg pool/A"]))
+
+
+def test_bookmarks_list_caching():
+    fs = InMemoryFS.of(InMemoryDataset("pool/A"))
+    dataset = ZfsBackend(path="pool/A", runner=fs)
+    dataset.bookmarks()
+    dataset.bookmarks()
+    assert_that(fs.recorded, equal_to(["zfs list -pHt bookmark -o name,guid,createtxg pool/A"]))
 
 
 def test_exists():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
+    fs = InMemoryFS.of(InMemoryDataset("pool/A"))
+    dataset = ZfsBackend(path="pool/A", runner=fs)
+    assert_that(dataset.exists(), equal_to(True))
+
+
+def test_exists_remote():
+    fs = InMemoryFS.of(InMemoryDataset("pool/A", "user@remote"))
+    dataset = ZfsBackend(path="pool/A", remote=Remote("user@remote", ("Compression=yes",)), runner=fs)
     assert_that(dataset.exists(), equal_to(True))
 
 
 def test_not_exists():
-    runner = RunnerMock(raises=NoSuchDatasetError(1, ""))
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
+    fs = InMemoryFS.of()
+    dataset = ZfsBackend(path="pool/AB", runner=fs)
     assert_that(dataset.exists(), equal_to(False))
 
 
 def test_snapshot():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    dataset.snapshot("s2")
-    assert_that(runner.recorded, equal_to([("zfs", "snapshot", "source/A@s2")]))
+    fs = InMemoryFS.of(InMemoryDataset("pool/A"))
+    dataset = ZfsBackend(path="pool/A", runner=fs)
+    dataset.snapshot("s1")
+    assert_that(fs.recorded, equal_to(["zfs snapshot pool/A@s1"]))
+    assert_that(fs.entries(), contains_exactly("pool/A@s1\tuuid:pool/A@s1\t896"))
 
 
 def test_snapshot_remote():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=Remote("user@host"), runner=runner)
-    dataset.snapshot("s2")
-    assert_that(
-        runner.recorded,
-        equal_to([("ssh", "user@host", "--", "zfs", "snapshot", "source/A@s2")]),
-    )
-
-
-def test_snapshot_remote_options():
-    runner = RunnerMock()
-    dataset = ZfsBackend(
-        path="source/A",
-        remote=Remote("user@host", options=("ServerAliveInterval=60", "Compression=yes")),
-        runner=runner,
-    )
-    dataset.snapshot("s2")
-    assert_that(
-        runner.recorded,
-        equal_to(
-            [
-                (
-                    "ssh",
-                    "user@host",
-                    "-o",
-                    "ServerAliveInterval=60",
-                    "-o",
-                    "Compression=yes",
-                    "--",
-                    "zfs",
-                    "snapshot",
-                    "source/A@s2",
-                )
-            ]
-        ),
-    )
+    fs = InMemoryFS.of(InMemoryDataset("pool/A", "user@remote"))
+    dataset = ZfsBackend(path="pool/A", remote=Remote("user@remote", ("Compression=yes",)), runner=fs)
+    dataset.snapshot("s1")
+    assert_that(fs.recorded, equal_to(["ssh user@remote -o Compression=yes -- zfs snapshot pool/A@s1"]))
 
 
 def test_bookmark():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    dataset.bookmark("s2")
-    assert_that(runner.recorded, equal_to([("zfs", "bookmark", "source/A@s2", "source/A#s2")]))
+    poolA = InMemoryDataset("pool/A")
+    fs = InMemoryFS.of(poolA.snapshot("s1"))
+    dataset = ZfsBackend(path="pool/A", runner=fs)
+    dataset.bookmark("s1")
+    assert_that(fs.recorded, equal_to(["zfs bookmark pool/A@s1 pool/A#s1"]))
+    assert_that(fs.entries(), contains_exactly("pool/A@s1\tuuid:pool/A@s1\t896", "pool/A#s1\tuuid:pool/A@s1\t896"))
 
 
 def test_bookmark_remote():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=Remote("user@host"), runner=runner)
-    dataset.bookmark("s2")
-    assert_that(
-        runner.recorded,
-        equal_to(
-            [
-                (
-                    "ssh",
-                    "user@host",
-                    "--",
-                    "zfs",
-                    "bookmark",
-                    "source/A@s2",
-                    "source/A#s2",
-                )
-            ]
-        ),
-    )
-
-
-def test_snapshots():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    dataset.snapshots()
-    assert_that(
-        runner.recorded,
-        equal_to(
-            [
-                (
-                    "zfs",
-                    "list",
-                    "-pHt",
-                    "snapshot",
-                    "-o",
-                    "name,guid,createtxg",
-                    "source/A",
-                )
-            ]
-        ),
-    )
-
-
-def test_snapshots_cache():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    dataset.snapshots()
-    dataset.snapshots()
-    assert_that(
-        runner.recorded,
-        equal_to(
-            [
-                (
-                    "zfs",
-                    "list",
-                    "-pHt",
-                    "snapshot",
-                    "-o",
-                    "name,guid,createtxg",
-                    "source/A",
-                )
-            ]
-        ),
-    )
-
-
-def test_snapshots_remote():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=Remote("user@host"), runner=runner)
-    dataset.snapshots()
-    assert_that(
-        runner.recorded,
-        equal_to(
-            [
-                (
-                    "ssh",
-                    "user@host",
-                    "--",
-                    "zfs",
-                    "list",
-                    "-pHt",
-                    "snapshot",
-                    "-o",
-                    "name,guid,createtxg",
-                    "source/A",
-                )
-            ]
-        ),
-    )
-
-
-def test_bookmarks():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    dataset.bookmarks()
-    assert_that(
-        runner.recorded,
-        equal_to(
-            [
-                (
-                    "zfs",
-                    "list",
-                    "-pHt",
-                    "bookmark",
-                    "-o",
-                    "name,guid,createtxg",
-                    "source/A",
-                )
-            ]
-        ),
-    )
-
-
-def test_bookmarks_cache():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    dataset.bookmarks()
-    dataset.bookmarks()
-    assert_that(
-        runner.recorded,
-        equal_to(
-            [
-                (
-                    "zfs",
-                    "list",
-                    "-pHt",
-                    "bookmark",
-                    "-o",
-                    "name,guid,createtxg",
-                    "source/A",
-                )
-            ]
-        ),
-    )
-
-
-def test_bookmarks_remote():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=Remote("user@host"), runner=runner)
-    dataset.bookmarks()
-    assert_that(
-        runner.recorded,
-        equal_to(
-            [
-                (
-                    "ssh",
-                    "user@host",
-                    "--",
-                    "zfs",
-                    "list",
-                    "-pHt",
-                    "bookmark",
-                    "-o",
-                    "name,guid,createtxg",
-                    "source/A",
-                )
-            ]
-        ),
-    )
+    fs = InMemoryFS.of(InMemoryDataset("pool/A", "user@remote").snapshot("s1"))
+    dataset = ZfsBackend(path="pool/A", remote=Remote("user@remote", ("Compression=yes",)), runner=fs)
+    dataset.bookmark("s1")
+    assert_that(fs.recorded, equal_to(["ssh user@remote -o Compression=yes -- zfs bookmark pool/A@s1 pool/A#s1"]))
 
 
 def test_send_resume():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
+    fs = InMemoryFS.of()
+    dataset = ZfsBackend(path="pool/A", runner=fs)
     stream = dataset.send("token", options=("-w",))
-    assert_that(stream, equal_to(ZfsStream(("zfs", "send", "-w", "-t", "token"), runner)))
-
-
-def test_send_incremental_from_bookmark():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    anchor = Bookmark(fqn="source/A#s1", guid="uuid:source/A@s1", createtxg=1)
-    snapshot = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
-    stream = dataset.send(snapshot, anchor, options=("-w",))
-    assert_that(
-        stream,
-        equal_to(ZfsStream(("zfs", "send", "-w", "-i", "source/A#s1", "source/A@s2"), runner)),
-    )
+    assert_that(stream, equal_to(ZfsStream(("zfs", "send", "-w", "-t", "token"), fs)))
 
 
 def test_send_incremental_from_snapshot():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    anchor = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
-    snapshot = Snapshot(fqn="source/A@s2", guid="uuid:source/A@s2", createtxg=2)
-    stream = dataset.send(snapshot, anchor, options=("-w",))
-    assert_that(
-        stream,
-        equal_to(ZfsStream(("zfs", "send", "-w", "-i", "source/A@s1", "source/A@s2"), runner)),
-    )
+    fs = InMemoryFS.of()
+    dataset = ZfsBackend(path="pool/A", runner=fs)
+    anchor = Snapshot(fqn="pool/A@s1", guid="uuid:pool/A@s1", createtxg=1)
+    snapshot = Snapshot(fqn="pool/A@s2", guid="uuid:pool/A@s2", createtxg=2)
+    stream = dataset.send(snapshot, anchor)
+    assert_that(stream, equal_to(ZfsStream(("zfs", "send", "-i", "pool/A@s1", "pool/A@s2"), fs)))
+
+
+def test_send_incremental_from_bookmark():
+    fs = InMemoryFS.of()
+    dataset = ZfsBackend(path="pool/A", runner=fs)
+    anchor = Bookmark(fqn="pool/A#s1", guid="uuid:pool/A@s1", createtxg=1)
+    snapshot = Snapshot(fqn="pool/A@s2", guid="uuid:pool/A@s2", createtxg=2)
+    stream = dataset.send(snapshot, anchor)
+    assert_that(stream, equal_to(ZfsStream(("zfs", "send", "-i", "pool/A#s1", "pool/A@s2"), fs)))
 
 
 def test_send_full():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    snapshot = Snapshot(fqn="source/A@s1", guid="uuid:source/A@s1", createtxg=1)
+    fs = InMemoryFS.of()
+    dataset = ZfsBackend(path="pool/A", runner=fs)
+    snapshot = Snapshot(fqn="pool/A@s2", guid="uuid:pool/A@s2", createtxg=2)
     stream = dataset.send(snapshot, options=("-w",))
-    assert_that(stream, equal_to(ZfsStream(("zfs", "send", "-w", "source/A@s1"), runner)))
+    assert_that(stream, equal_to(ZfsStream(("zfs", "send", "-w", "pool/A@s2"), fs)))
 
 
 def test_recv():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
-    dataset.recv(ZfsStream(("zfs", "send", "..."), runner), options=("-s", "-u", "-F"), dry_run=False)
-    assert_that(
-        runner.recorded,
-        equal_to([("zfs", "send", "..."), ("zfs", "receive", "-s", "-u", "-F", "source/A")]),
-    )
+    poolA = InMemoryDataset("pool/A").snapshot("s1")
+    poolB = InMemoryDataset("pool/B", "user@remote")
+    fs = InMemoryFS.of(poolA, poolB)
+    source = ZfsBackend(path="pool/A", runner=fs)
+    target = ZfsBackend(path="pool/B", remote=Remote("user@remote"), runner=fs)
+    snapshot = fs.find("pool/A").find("pool/A@s1")
+    stream = source.send(snapshot)
+    target.recv(stream, options=("-s", "-u", "-F"), dry_run=False)
+    assert_that(fs.recorded, equal_to(["zfs send pool/A@s1 | ssh user@remote -- zfs receive -s -u -F pool/B"]))
+    assert_that(fs.entries(), contains_exactly("pool/A@s1\tuuid:pool/A@s1\t896", "pool/B@s1\tuuid:pool/A@s1\t655"))
 
 
-def test_resume_token():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
+def test_get_resume_token():
+    fs = InMemoryFS.of(InMemoryDataset("pool/A", remote="user@remote", token="341293104"))
+    dataset = ZfsBackend(path="pool/A", remote=Remote("user@remote"), runner=fs)
     dataset.resume_token()
-    assert_that(
-        runner.recorded,
-        equal_to([("zfs", "get", "-H", "-o", "value", "receive_resume_token", "source/A")]),
-    )
+    assert_that(fs.recorded, equal_to(["ssh user@remote -- zfs get -H -o value receive_resume_token pool/A"]))
 
 
-def test_resume_token_cache():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
+def test_get_resume_token_caching():
+    fs = InMemoryFS.of(InMemoryDataset("pool/A", remote="user@remote", token="341293104"))
+    dataset = ZfsBackend(path="pool/A", remote=Remote("user@remote"), runner=fs)
     dataset.resume_token()
     dataset.resume_token()
-    assert_that(
-        runner.recorded,
-        equal_to([("zfs", "get", "-H", "-o", "value", "receive_resume_token", "source/A")]),
-    )
+    assert_that(fs.recorded, equal_to(["ssh user@remote -- zfs get -H -o value receive_resume_token pool/A"]))
 
 
 def test_stream_size():
-    runner = RunnerMock(
-        returns="""full    rpool@rift_2025-12-06_05:15:04_frequently       3711767360
-                   size    3711767360"""
-    )
-    size = ZfsStream(("zfs", "send", "..."), runner).size()
-    assert_that(size, equal_to(3711767360))
-
-
-def test_stream_size_resume():
-    runner = RunnerMock(
-        returns="""resume token contents:
-                nvlist version: 0
-                        object = 0x72a
-                        offset = 0x5f80000
-                        bytes = 0x90c3f2184
-                        toguid = 0xc7442ab399a28a9b
-                        toname = rpool@rift_2025-12-05_07:36:58_weekly
-                        compressok = 1
-                        rawok = 1
-                full    rpool@rift_2025-12-06_05:15:04_frequently       3711767360
-                size    3711767360"""
-    )
-    size = ZfsStream(("zfs", "send", "..."), runner).size()
-    assert_that(size, equal_to(3711767360))
+    fs = InMemoryFS.of(InMemoryDataset("pool/A").snapshot("s1"))
+    source = ZfsBackend(path="pool/A", runner=fs)
+    snapshot = fs.find("pool/A").find("pool/A@s1")
+    stream = source.send(snapshot)
+    assert_that(stream.size(), equal_to(3711767360))
 
 
 def test_destroy_none():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
+    fs = InMemoryFS.of(InMemoryDataset("pool/A").snapshot("s1"))
+    dataset = ZfsBackend(path="pool/A", runner=fs)
     dataset.destroy([], dry_run=False)
-    assert_that(runner.recorded, equal_to([]))
+    assert_that(fs.recorded, equal_to([]))
 
 
 def test_destroy():
-    runner = RunnerMock()
-    dataset = ZfsBackend(path="source/A", remote=None, runner=runner)
+    poolA = InMemoryDataset("pool/A").snapshot("s2", "s3")
+    fs = InMemoryFS.of(poolA)
+    dataset = ZfsBackend(path="pool/A", runner=fs)
     dataset.destroy(["s1", "s2"], dry_run=False)
-    assert_that(runner.recorded, equal_to([("zfs", "destroy", "source/A@s1,s2")]))
+    assert_that(fs.recorded, equal_to(["zfs destroy pool/A@s1,s2"]))
+    assert_that(fs.entries(), contains_exactly("pool/A@s3\tuuid:pool/A@s3\t897"))
+
+
+def test_send_rev():
+    poolA = InMemoryDataset("pool/A").snapshot("s1")
+    poolB = InMemoryDataset("pool/B")
+    fs = InMemoryFS.of(poolA, poolB)
+    s1 = poolA.find("pool/A@s1")
+
+    source = ZfsBackend(path="pool/A", runner=fs)
+    target = ZfsBackend(path="pool/B", runner=fs)
+
+    stream = source.send(s1)
+    target.recv(stream, dry_run=False)
+
+    # assert that all options were passed through
+    assert_that(fs.recorded, includes("zfs send pool/A@s1 | zfs receive pool/B"))
+
+
+def test_send_rev_with_options():
+    poolA = InMemoryDataset("pool/A", "userA@remoteA").snapshot("s1")
+    poolB = InMemoryDataset("pool/B", "userB@remoteB")
+    fs = InMemoryFS.of(poolA, poolB)
+    s1 = poolA.find("pool/A@s1")
+
+    source = ZfsBackend(path="pool/A", remote=Remote("userA@remoteA", ("option=A",)), runner=fs)
+    target = ZfsBackend(path="pool/B", remote=Remote("userB@remoteB", ("option=B",)), runner=fs)
+
+    stream = source.send(s1, options=("-w",))
+    target.recv(stream, options=("-s", "-u", "-F"), dry_run=False)
+
+    # assert that all options were passed through
+    assert_that(
+        fs.recorded,
+        includes(
+            "ssh userA@remoteA -o option=A -- zfs send -w pool/A@s1 | ssh userB@remoteB -o option=B -- zfs receive -s -u -F pool/B"
+        ),
+    )
+
+
+def test_send_rev_dry_run():
+    poolA = InMemoryDataset("pool/A").snapshot("s1")
+    poolB = InMemoryDataset("pool/B")
+    fs = InMemoryFS.of(poolA, poolB)
+    s1 = poolA.find("pool/A@s1")
+
+    source = ZfsBackend(path="pool/A", runner=fs)
+    target = ZfsBackend(path="pool/B", runner=fs)
+
+    stream = source.send(s1)
+    target.recv(stream, dry_run=True)
+
+    # assert that all options were passed through
+    assert_that(fs.recorded, includes("zfs send pool/A@s1 | zfs receive pool/B -n -v"))

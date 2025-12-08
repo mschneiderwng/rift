@@ -120,7 +120,7 @@ class ZfsBackend(Backend):
         Bookmark a given snapshot to save its state. This function creates a permanent
         bookmark for a specific ZFS snapshot.
 
-        :param snapshot: The name of the snapshot to create a bookmark for.
+        :param snapshot: The name of the snapshot to create a bookmark for without path@ prefix, e.g. snap1.
         """
         log = structlog.get_logger()
         log.info(f"creating bookmark '{self.fqn}#{snapshot}'")
