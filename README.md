@@ -147,7 +147,7 @@ I let `systemd` handle all the automation with the goal to give the units the le
 - One service that sends snapshots to a remote.
     - This service assumes there is a user `rift-recv` at the remote with the zfs permissions `create,receive,mount`. That way, it is not possible to destroy backups remotely. Snapshots on the remote should be pruned with its own locally running service.
 
-`nix` is used a configuration language which creates the services and timers. The result are systemd units and timers:
+Nix is used a configuration language which creates the services and timers. The result are systemd units and timers:
 
 - [Example systemd (daily) snapshot unit](docs/rift-snapshot-daily.service)
 - [Example systemd prune unit](docs/rift-prune.service)
@@ -237,7 +237,7 @@ The modules I created are available in the repository and their usage looks like
 
 # Installation
 
-nix can run rift without installation via `nix run github:mschneiderwng/rift -- --help`. Alternatively install the python application with `uv`. The nixos module is exported and can be included in a flake as in the following example:
+Nix can run rift without installation via `nix run github:mschneiderwng/rift -- --help`. Alternatively install the python application with `uv`. The nixos module is exported and can be included in a flake as in the following example:
 
 ```
   inputs = {
@@ -249,3 +249,22 @@ nix can run rift without installation via `nix run github:mschneiderwng/rift -- 
     # incldue this in your modules:
     rift.nixosModules.rift
 ```
+
+# Development
+
+Checkout the repository and execute the following to create a virtual environment that can be used with pycharm-professional. Of course your can use a different IDE of your choice.
+```bash
+# create a virtual environment
+nix build .#venv -o .venv
+# start pycharm
+nix develop .#uv2nix -c pycharm-professional
+```
+
+
+# FAQ
+
+### How does it differ from sanoid/syncoid?
+
+sanoid has been around much longer and has grown into a large, feature-rich toolkit that tries to handle nearly every aspect of ZFS snapshot management and replication. In my view, it ends up doing a bit too much, partly due to legacy design decisions and the need to support many different environments and use cases.
+
+rift takes a different approach. Instead of embedding its own mechanisms for scheduling, isolation, and logging, it delegates these responsibilities to systemd, which is already excellent at managing processes and services. rift then uses a configuration language like Nix to generate the necessary systemd units and timers in a clean and declarative way. Because of this architecture, rift remains intentionally small and focused; the core replication logic fits into roughly 100 lines of code (excluding comments), making it easier to understand, maintain, and audit.
