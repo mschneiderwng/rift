@@ -81,6 +81,8 @@ let
         description = "rift sync service";
         after = [ "zfs.target" ];
         path = [ pkgs.openssh ];
+        startLimitBurst = 3;
+        startLimitIntervalSec = 60 * 60;
         serviceConfig = {
           LoadCredential = [ "ssh_key:${cfg.sshPrivateKey}" ];
           User = user;
@@ -92,6 +94,8 @@ let
           RuntimeDirectory = [ "rift" ];
           RuntimeDirectoryMode = "700";
           Type = "oneshot";
+          Restart = "on-failure";
+          RestartSec = "60";
           ExecStartPre = allow user [ "send" ] cfg.datasets;
           ExecStopPost = unallow user [ "send" ] cfg.datasets;
           ExecStart = map (mkSync cfg remote) cfg.datasets;

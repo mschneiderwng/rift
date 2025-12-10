@@ -69,6 +69,8 @@ let
         description = "rift snapshot service";
         onFailure = cfg.onFailure;
         after = [ "zfs.target" ];
+        startLimitBurst = 3;
+        startLimitIntervalSec = 60 * 60;
         serviceConfig = {
           User = user;
           Group = user;
@@ -79,6 +81,8 @@ let
           RuntimeDirectory = [ "rift" ];
           RuntimeDirectoryMode = "700";
           Type = "oneshot";
+          Restart = "on-failure";
+          RestartSec = "60";
           ExecStartPre = allow user [ "snapshot" "bookmark" ] datasets;
           ExecStopPost = unallow user [ "snapshot" "bookmark" ] datasets;
           ExecStart = map (mkSnapshot schedule) datasets;

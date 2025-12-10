@@ -121,6 +121,8 @@ in
         description = "rift prune service";
         onFailure = cfg.onFailure;
         after = [ "zfs.target" ];
+        startLimitBurst = 3;
+        startLimitIntervalSec = 60 * 60;
         serviceConfig = {
           User = user;
           Group = user;
@@ -131,6 +133,8 @@ in
           RuntimeDirectory = [ "rift" ];
           RuntimeDirectoryMode = "700";
           Type = "oneshot";
+          Restart = "on-failure";
+          RestartSec = "60";
           ExecStartPre = allow user [ "destroy" "mount" ] (builtins.attrNames cfg.datasets);
           ExecStopPost = unallow user [ "destroy" "mount" ] (builtins.attrNames cfg.datasets);
           ExecStart = lib.mapAttrsToList mkPrune cfg.datasets;
