@@ -122,7 +122,7 @@ in
         onFailure = cfg.onFailure;
         after = [ "zfs.target" ];
         startLimitBurst = 3;
-        startLimitIntervalSec = 60 * 60;
+        startLimitIntervalSec = 60 * 5;
         serviceConfig = {
           User = user;
           Group = user;

@@ -82,7 +82,7 @@ let
         after = [ "zfs.target" ];
         path = [ pkgs.openssh ];
         startLimitBurst = 3;
-        startLimitIntervalSec = 60 * 60;
+        startLimitIntervalSec = 60 * 5;
         serviceConfig = {
           LoadCredential = [ "ssh_key:${cfg.sshPrivateKey}" ];
           User = user;
