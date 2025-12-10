@@ -126,11 +126,11 @@ in
         serviceConfig = {
           User = user;
           Group = user;
-          StateDirectory = [ "rift" ];
+          StateDirectory = [ "rift/${unitName}" ];
           StateDirectoryMode = "700";
-          CacheDirectory = [ "rift" ];
+          CacheDirectory = [ "rift/${unitName}" ];
           CacheDirectoryMode = "700";
-          RuntimeDirectory = [ "rift" ];
+          RuntimeDirectory = [ "rift/${unitName}" ];
           RuntimeDirectoryMode = "700";
           Type = "oneshot";
           Restart = "on-failure";
