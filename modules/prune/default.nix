@@ -7,7 +7,7 @@ self:
 }:
 let
   cfg = config.services.rift.prune;
-  rift = "${self.packages.${pkgs.system}.rift}";
+  rift = "${self.packages.${pkgs.stdenv.hostPlatform.system}.rift}";
 
   mkPermissions =
     action: user: permissions: dataset:

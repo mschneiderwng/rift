@@ -7,7 +7,7 @@ self:
 }:
 let
   cfg = config.services.rift.snapshots;
-  rift = "${self.packages.${pkgs.system}.rift}";
+  rift = "${self.packages.${pkgs.stdenv.hostPlatform.system}.rift}";
 
   # Escape as required by: https://www.freedesktop.org/software/systemd/man/systemd.unit.html
   escapeUnitName =
