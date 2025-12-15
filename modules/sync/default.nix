@@ -80,7 +80,7 @@ let
       value = {
         description = "rift sync service";
         after = [ "zfs.target" ];
-        path = [ pkgs.openssh ];
+        path = cfg.path;
         startLimitBurst = 3;
         startLimitIntervalSec = 60 * 5;
         serviceConfig = {
@@ -213,11 +213,20 @@ in
 
               pipes = lib.mkOption {
                 type = lib.types.listOf lib.types.str;
+                default = [ pkgs.openssh ];
+                example = [
+                  "pkgs.openssh"
+                ];
+                description = "Programs to pipe to between send and recv.";
+              };
+
+              path = lib.mkOption {
+                type = lib.types.listOf lib.types.package;
                 default = [ ];
                 example = [
                   "pv -p -e -t -r -a -b -s {size}"
                 ];
-                description = "Programs to pipe to between send and recv.";
+                description = "Packages needed for rift and pipes";
               };
 
               zfsSendOptions = lib.mkOption {
