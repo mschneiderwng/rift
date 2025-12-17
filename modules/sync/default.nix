@@ -213,19 +213,15 @@ in
 
               pipes = lib.mkOption {
                 type = lib.types.listOf lib.types.str;
-                default = [ pkgs.openssh ];
-                example = [
-                  "pkgs.openssh"
-                ];
+                default = [ ];
+                example = [ "mbuffer -r 1M" ];
                 description = "Programs to pipe to between send and recv.";
               };
 
               path = lib.mkOption {
                 type = lib.types.listOf lib.types.package;
-                default = [ ];
-                example = [
-                  "pv -p -e -t -r -a -b -s {size}"
-                ];
+                default = [ pkgs.openssh ];
+                example = [ "pkgs.openssh" ];
                 description = "Packages needed for rift and pipes";
               };
 
