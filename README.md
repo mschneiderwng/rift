@@ -147,7 +147,11 @@ I let `systemd` handle all the automation with the goal to give the units the le
 - One service that sends snapshots to a remote.
     - This service assumes there is a user `rift-recv` at the remote with the zfs permissions `create,receive,mount`. That way, it is not possible to destroy backups remotely. Snapshots on the remote should be pruned with its own locally running service.
 
-Nix is used a configuration language which creates the services and timers. The result are systemd units and timers:
+Nix is used a configuration language which creates the services and timers. 
+
+__Note: While the rift api should be fairly stable, the nix module is (at the moment) taylored to my needs and subject to change.__
+
+The result are systemd units and timers:
 
 - [Example systemd (daily) snapshot unit](docs/rift-snapshot-daily.service)
 - [Example systemd prune unit](docs/rift-prune.service)
@@ -218,7 +222,7 @@ The modules I created are available in the repository and their usage looks like
         };
 
         # sync all snaphots to nas (excluding frequently snapshots)
-        services.rift.sync = {
+        services.rift.sync.push = {
             enable = true;
             remotes = {
                 "rift-recv@nas:spool/backups/yoga" = {
@@ -226,7 +230,7 @@ The modules I created are available in the repository and their usage looks like
                     datasets = datasets;
                     sshPrivateKey = config.sops.secrets."rift/sync/key".path;
                     filter = ''rift_.*_.*(?<!frequently)$''; # send all but frequently snaps
-                    pipes = [ "pv -p -e -t -r -a -b -s {size}" ];
+                    pipes = [ "mbuffer -r 1M" ];
                     zfsSendOptions = ["-w"];
                     zfsRecvOptions = ["-s" "-u" "-F"];
                 };
