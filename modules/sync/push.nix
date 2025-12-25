@@ -95,6 +95,7 @@ let
           RuntimeDirectoryMode = "700";
           Type = "oneshot";
           Restart = "on-failure";
+          RestartMode = "direct";
           RestartSec = "60";
           ExecStartPre = allow user [ "send" ] cfg.datasets;
           ExecStopPost = unallow user [ "send" ] cfg.datasets;

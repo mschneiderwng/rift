@@ -134,6 +134,7 @@ in
           RuntimeDirectoryMode = "700";
           Type = "oneshot";
           Restart = "on-failure";
+          RestartMode = "direct";
           RestartSec = "60";
           ExecStartPre = allow user [ "destroy" "mount" ] (builtins.attrNames cfg.datasets);
           ExecStopPost = unallow user [ "destroy" "mount" ] (builtins.attrNames cfg.datasets);

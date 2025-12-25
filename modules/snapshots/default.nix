@@ -82,6 +82,7 @@ let
           RuntimeDirectoryMode = "700";
           Type = "oneshot";
           Restart = "on-failure";
+          RestartMode = "direct";
           RestartSec = "60";
           ExecStartPre = allow user [ "snapshot" "bookmark" ] datasets;
           ExecStopPost = unallow user [ "snapshot" "bookmark" ] datasets;
