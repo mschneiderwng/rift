@@ -4,7 +4,11 @@ __Warning: This tool is not production ready!__
 
 I wanted a zfs replication tool which consists of many dedicate very small programs which do just as much as necessary with very few permissions. Especially, a compromised host should not be able to destroy backups on a remote. The goal is to have a well-tested small library where other tool can build upon.
 
-rift does not have timer. systemd does a much better job with its abilty to notify on failure, persist when a system is suspended, etc. It also does not have a configuration file. I use `nix` to configure the systemd units and timers. The nix module for rift is exported by this repositories flake.
+rifts `snapshot`, `sync` and `prune` programs are all completely independent. You can for example use rift for snapshotting and pruning and syncoid for syncing or the other way around.
+There are no hidden suprises, eg. `sync` and `prune` will never create snapshtos, `snapshot` and will never destroy any snapshots.
+
+rift does have no timer. systemd does a much better job with its abilty to notify on failure, persist when a system is suspended, logging, isolation, etc. 
+rift also does not have a configuration file. I use `nix` to configure the systemd units and timers. The nix module for rift is exported by this repositories flake.
 
 # Interface
 

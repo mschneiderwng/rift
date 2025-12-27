@@ -177,7 +177,7 @@ def sync(
     to_sync = [s for s in to_sync if p.match(s.name)]
     log.info(f"{len(to_sync)} snapshots need syncing")
 
-    # log the reason why snapshots are not being synced or not
+    # log the reason why snapshots are being synced or not
     for s in source.snapshots():
         if s in to_sync:
             log.debug(f"[to be sync    ] {s.name}")
