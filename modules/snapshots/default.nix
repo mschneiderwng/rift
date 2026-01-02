@@ -8,6 +8,7 @@ self:
 let
   cfg = config.services.rift.snapshots;
   rift = "${self.packages.${pkgs.stdenv.hostPlatform.system}.rift}";
+  types = lib.types;
 
   common = (import ../common.nix { inherit config pkgs lib; });
   inherit (common) allow unallow escapeUnitName;
@@ -23,8 +24,8 @@ let
       )
     );
 
-  mkSnapshotTimer = schedule: timerConfig: {
-    name = "rift-snapshot-${schedule}";
+  mkSnapshotTimer = id: cfg: schedule: timerConfig: {
+    name = "rift-snapshot-${id}-${schedule}";
     value = {
       wantedBy = [ "timers.target" ];
       timerConfig = timerConfig;
@@ -32,7 +33,7 @@ let
   };
 
   mkSnapshot =
-    schedule: dataset:
+    cfg: schedule: dataset:
     lib.escapeShellArgs (
       [
         "${rift}/bin/rift"
@@ -46,10 +47,11 @@ let
       ++ [ dataset ]
     );
 
+  # create unit from someting like daily = ["rpool/user", "rpool/data"];
   mkSnapshotService =
-    schedule: datasets:
+    id: cfg: schedule: datasets:
     let
-      unitName = "rift-snapshot-${schedule}";
+      unitName = "rift-snapshot-${id}-${schedule}";
       user = unitName;
     in
     {
@@ -75,7 +77,7 @@ let
           RestartSec = "60";
           ExecStartPre = allow user [ "snapshot" "bookmark" ] datasets;
           ExecStopPost = unallow user [ "snapshot" "bookmark" ] datasets;
-          ExecStart = map (mkSnapshot schedule) datasets;
+          ExecStart = map (mkSnapshot cfg schedule) datasets;
           CPUWeight = 20;
           CPUQuota = "75%";
           BindPaths = [ "/dev/zfs" ];
@@ -126,14 +128,94 @@ let
     };
 in
 {
-  options.services.rift.snapshots = {
-    enable = lib.mkEnableOption "rift snapshot service";
+  options.services.rift.snapshots = lib.mkOption {
+    type = types.attrsOf (
+      types.submodule (
+        { name, ... }:
+        {
+          options = {
 
-    datasets = lib.mkOption {
-      type = lib.types.attrsOf (lib.types.listOf (lib.types.str));
-      default = { };
-      example = {
-        "rpool/user" = [
+            datasets = lib.mkOption {
+              type = types.attrsOf (types.listOf (types.str));
+              default = { };
+              example = {
+                "rpool/user" = [
+                  "frequently"
+                  "daily"
+                  "hourly"
+                  "weekly"
+                  "monthly"
+                  "yearly"
+                ];
+              };
+              description = ''Mapping of ZFS datasets to a list of snapshot schedules.'';
+            };
+
+            schedules = lib.mkOption {
+              type = types.attrsOf (types.attrs);
+              default = {
+                frequently = {
+                  OnCalendar = "*:0/15";
+                  Persistent = false;
+                  RandomizedDelaySec = "1m";
+                };
+                hourly = {
+                  OnCalendar = "hourly";
+                  Persistent = false;
+                  RandomizedDelaySec = "1m";
+                };
+                daily = {
+                  OnCalendar = "daily";
+                  Persistent = true;
+                  RandomizedDelaySec = "1m";
+                };
+                weekly = {
+                  OnCalendar = "weekly";
+                  Persistent = true;
+                  RandomizedDelaySec = "1m";
+                };
+                monthly = {
+                  OnCalendar = "monthly";
+                  Persistent = true;
+                  RandomizedDelaySec = "1m";
+                };
+                yearly = {
+                  OnCalendar = "yearly";
+                  Persistent = true;
+                  RandomizedDelaySec = "1m";
+                };
+              };
+              description = ''Mapping scheduls/tags to systemd timer configs.'';
+            };
+
+            serviceConfig = lib.mkOption {
+              type = types.attrs;
+              default = { };
+              description = "Systemd service configuration";
+            };
+
+            onFailure = lib.mkOption {
+              type = types.listOf types.str;
+              default = [ ];
+              description = "Systemd OnFailure= dependencies.";
+            };
+
+            verbosity = lib.mkOption {
+              type = types.str;
+              description = ''Logging verbosity'';
+              default = "-v";
+            };
+          };
+        }
+      )
+    );
+
+    description = ''
+      rift snapshot services.
+    '';
+    example = ''
+      services.rift.snapshots."system" = {
+        datasets = "rpool/user" = [
           "frequently"
           "daily"
           "hourly"
@@ -142,70 +224,16 @@ in
           "yearly"
         ];
       };
-      description = ''Mapping of ZFS datasets to a list of snapshot schedules.'';
-    };
-
-    schedules = lib.mkOption {
-      type = lib.types.attrsOf (lib.types.attrs);
-      default = {
-        frequently = {
-          OnCalendar = "*:0/15";
-          Persistent = false;
-          RandomizedDelaySec = "1m";
-        };
-        hourly = {
-          OnCalendar = "hourly";
-          Persistent = false;
-          RandomizedDelaySec = "1m";
-        };
-        daily = {
-          OnCalendar = "daily";
-          Persistent = true;
-          RandomizedDelaySec = "1m";
-        };
-        weekly = {
-          OnCalendar = "weekly";
-          Persistent = true;
-          RandomizedDelaySec = "1m";
-        };
-        monthly = {
-          OnCalendar = "monthly";
-          Persistent = true;
-          RandomizedDelaySec = "1m";
-        };
-        yearly = {
-          OnCalendar = "yearly";
-          Persistent = true;
-          RandomizedDelaySec = "1m";
-        };
-      };
-      description = ''Mapping scheduls/tags to systemd timer configs.'';
-    };
-
-    serviceConfig = lib.mkOption {
-      type = lib.types.attrs;
-      default = { };
-      description = "systemd service configuration";
-    };
-
-    onFailure = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      description = "systemd OnFailure= dependencies.";
-    };
-
-    verbosity = lib.mkOption {
-      type = lib.types.str;
-      description = ''Logging verbosity'';
-      default = "-v";
-    };
+    '';
+    default = { };
   };
 
-  config = lib.mkIf cfg.enable {
-
-    environment.systemPackages = with pkgs; [ rift ];
-
-    systemd.timers = lib.mapAttrs' mkSnapshotTimer cfg.schedules;
-    systemd.services = lib.mapAttrs' mkSnapshotService (invert cfg.datasets);
+  config = lib.mkIf config.services.rift.enable {
+    systemd.timers = lib.concatMapAttrs (
+      id: cfg: lib.mapAttrs' (mkSnapshotTimer id cfg) cfg.schedules
+    ) cfg;
+    systemd.services = lib.concatMapAttrs (
+      id: cfg: lib.mapAttrs' (mkSnapshotService id cfg) (invert cfg.datasets)
+    ) cfg;
   };
 }

@@ -8,12 +8,13 @@ self:
 let
   cfg = config.services.rift.prune;
   rift = "${self.packages.${pkgs.stdenv.hostPlatform.system}.rift}";
+  types = lib.types;
 
   common = (import ../common.nix { inherit config pkgs lib; });
-  inherit (common) allow unallow attrKeys;
+  inherit (common) allow unallow escapeUnitName;
 
   mkPolicy =
-    policy:
+    cfg: policy:
     lib.lists.flatten (
       lib.mapAttrsToList (tag: keep: [
         "--keep"
@@ -23,85 +24,25 @@ let
     );
 
   mkPrune =
-    dataset: policy:
+    cfg: dataset: policy:
     lib.escapeShellArgs (
       [
         "${rift}/bin/rift"
         "prune"
       ]
       ++ lib.optional (cfg.verbosity != "") cfg.verbosity
-      ++ mkPolicy policy
+      ++ (mkPolicy cfg policy)
       ++ [ dataset ]
     );
 
-in
-{
-  options.services.rift.prune = {
-    enable = lib.mkEnableOption "rift prune service";
-
-    datasets = lib.mkOption {
-      type = lib.types.attrsOf (lib.types.attrsOf lib.types.int);
-      default = { };
-      example = {
-        "rpool/user" = {
-          frequently = 48 * 60 / 15;
-          hourly = 24;
-          daily = 30;
-          monthly = 12;
-          yearly = 0;
-        };
-      };
-      description = ''
-        Mapping of ZFS datasets to a retention policy.
-        Each key is a dataset, and each value is an attrset of schedule → keep count (integer).
-      '';
-    };
-
-    timerConfig = lib.mkOption {
-      type = lib.types.attrs;
-      default = {
-        OnCalendar = "daily";
-        RandomizedDelaySec = "10min";
-        Persistent = true;
-      };
-      description = "Systemd timer configuration";
-    };
-
-    serviceConfig = lib.mkOption {
-      type = lib.types.attrs;
-      default = { };
-      description = "systemd service configuration";
-    };
-
-    onFailure = lib.mkOption {
-      type = lib.types.listOf lib.types.str;
-      default = [ ];
-      description = "systemd OnFailure= dependencies.";
-    };
-
-    verbosity = lib.mkOption {
-      type = lib.types.str;
-      description = ''Logging verbosity'';
-      default = "-v";
-    };
-
-  };
-
-  config = lib.mkIf cfg.enable {
-    environment.systemPackages = with pkgs; [ rift ];
-
-    systemd.timers."rift-prune" = {
-      wantedBy = [ "timers.target" ];
-      timerConfig = cfg.timerConfig;
-    };
-
-    systemd.services."rift-prune" =
-      let
-
-        unitName = "rift-prune";
-        user = unitName;
-      in
-      {
+  mkPruneService =
+    id: cfg:
+    let
+      user = cfg.name;
+    in
+    {
+      name = cfg.name;
+      value = {
         description = "rift prune service";
         onFailure = cfg.onFailure;
         after = [ "zfs.target" ];
@@ -110,11 +51,11 @@ in
         serviceConfig = {
           User = user;
           Group = user;
-          StateDirectory = [ "rift/${unitName}" ];
+          StateDirectory = [ "rift/${cfg.name}" ];
           StateDirectoryMode = "700";
-          CacheDirectory = [ "rift/${unitName}" ];
+          CacheDirectory = [ "rift/${cfg.name}" ];
           CacheDirectoryMode = "700";
-          RuntimeDirectory = [ "rift/${unitName}" ];
+          RuntimeDirectory = [ "rift/${cfg.name}" ];
           RuntimeDirectoryMode = "700";
           Type = "oneshot";
           Restart = "on-failure";
@@ -122,7 +63,7 @@ in
           RestartSec = "60";
           ExecStartPre = allow user [ "destroy" "mount" ] (builtins.attrNames cfg.datasets);
           ExecStopPost = unallow user [ "destroy" "mount" ] (builtins.attrNames cfg.datasets);
-          ExecStart = lib.mapAttrsToList mkPrune cfg.datasets;
+          ExecStart = lib.mapAttrsToList (mkPrune cfg) cfg.datasets;
           CPUWeight = 20;
           CPUQuota = "75%";
           BindPaths = [ "/dev/zfs" ];
@@ -170,5 +111,102 @@ in
         }
         // cfg.serviceConfig;
       };
+    };
+
+  mkPruneTimer = target: cfg: {
+    name = cfg.name;
+    value = {
+      wantedBy = [ "timers.target" ];
+      timerConfig = cfg.timerConfig;
+    };
+  };
+
+in
+{
+  options.services.rift.prune = lib.mkOption {
+    type = types.attrsOf (
+      types.submodule (
+        { name, ... }:
+        {
+          options = {
+            datasets = lib.mkOption {
+              type = types.attrsOf (types.attrsOf types.int);
+              default = { };
+              example = {
+                "rpool/user" = {
+                  frequently = 48 * 60 / 15;
+                  hourly = 24;
+                  daily = 30;
+                  monthly = 12;
+                  yearly = 0;
+                };
+              };
+              description = ''
+                Mapping of ZFS datasets to a retention policy.
+                Each key is a dataset, and each value is an attrset of schedule → keep count (integer).
+              '';
+            };
+
+            name = lib.mkOption {
+              type = types.str;
+              description = ''Systemd unit name.'';
+              default = "rift-prune-${escapeUnitName name}";
+            };
+
+            timerConfig = lib.mkOption {
+              type = types.attrs;
+              default = {
+                OnCalendar = "daily";
+                RandomizedDelaySec = "10min";
+                Persistent = true;
+              };
+              description = "Systemd timer configuration";
+            };
+
+            serviceConfig = lib.mkOption {
+              type = types.attrs;
+              default = { };
+              description = "systemd service configuration";
+            };
+
+            onFailure = lib.mkOption {
+              type = types.listOf types.str;
+              default = [ ];
+              description = "systemd OnFailure= dependencies.";
+            };
+
+            verbosity = lib.mkOption {
+              type = types.str;
+              description = ''Logging verbosity'';
+              default = "-v";
+            };
+          };
+        }
+      )
+    );
+
+    description = ''
+      rift prune services and timers.
+    '';
+    example = ''
+      services.rift.prune."system" = {
+        onFailure = [ "notify-email@%n.service" ];
+        datasets = {
+          "rpool/user" = {
+            frequently = 48 * 60 / 15;
+            hourly = 24;
+            daily = 30;
+            monthly = 12;
+            yearly = 0;
+          };
+        };
+      };
+    '';
+    default = { };
+  };
+
+  config = lib.mkIf config.services.rift.enable {
+    systemd.timers = lib.mapAttrs' mkPruneTimer cfg;
+    systemd.services = lib.mapAttrs' mkPruneService cfg;
   };
 }

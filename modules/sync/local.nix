@@ -8,6 +8,7 @@ self:
 let
   cfg = config.services.rift.sync.local;
   rift = "${self.packages.${pkgs.stdenv.hostPlatform.system}.rift}";
+  types = lib.types;
 
   common = (import ../common.nix { inherit config pkgs lib; });
   inherit (common) allow unallow escapeUnitName;
@@ -141,117 +142,107 @@ let
 
 in
 {
-  options.services.rift.sync.local = {
-
-    enable = lib.mkEnableOption "Enable rift ZFS sync service";
-
-    targets = lib.mkOption {
-      type = lib.types.attrsOf (
-        lib.types.submodule (
-          { target, config, ... }:
-          {
-            options = {
-
-              datasets = lib.mkOption {
-                type = lib.types.listOf lib.types.str;
-                description = ''
-                  List of local ZFS datasets that should be replicated to this target.
-                '';
-                example = [
-                  "rpool/.../dev"
-                  "rpool/.../docs"
-                ];
-              };
-
-              name = lib.mkOption {
-                type = lib.types.nullOr lib.types.str;
-                description = ''Systemd unit name.'';
-                default = lib.mkDefault "rift-sync-${escapeUnitName target}";
-              };
-
-              filter = lib.mkOption {
-                type = lib.types.str;
-                description = ''A regex matching the snapshots to be sent.'';
-                default = "rift_.*_.*(?<!frequently)$"; # all but frequently
-              };
-
-              pipes = lib.mkOption {
-                type = lib.types.listOf lib.types.str;
-                default = [ ];
-                example = [
-                  "pv -p -e -t -r -a -b -s {size}"
-                ];
-                description = "Programs to pipe to between send and recv.";
-              };
-
-              zfsSendOptions = lib.mkOption {
-                type = lib.types.listOf lib.types.str;
-                default = [ ];
-                example = [ "-w" ];
-                description = "Options passed to zfs send.";
-              };
-
-              zfsRecvOptions = lib.mkOption {
-                type = lib.types.listOf lib.types.str;
-                default = [ ];
-                example = [
-                  "-s"
-                  "-u"
-                  "-F"
-                ];
-                description = "Options passed to zfs recv.";
-              };
-
-              verbosity = lib.mkOption {
-                type = lib.types.str;
-                description = ''Logging verbosity'';
-                default = "-v";
-              };
-
-              extraArgs = lib.mkOption {
-                type = lib.types.listOf lib.types.str;
-                default = [ ];
-                description = "Extra rift arguments.";
-              };
-
-              timerConfig = lib.mkOption {
-                type = lib.types.attrs;
-                default = {
-                  OnCalendar = "hourly";
-                  RandomizedDelaySec = "10min";
-                  Persistent = true;
-                };
-                description = "Systemd timer configuration.";
-              };
+  options.services.rift.sync.local = lib.mkOption {
+    type = types.attrsOf (
+      types.submodule (
+        { name, ... }:
+        {
+          options = {
+            datasets = lib.mkOption {
+              type = types.listOf types.str;
+              description = ''
+                List of local ZFS datasets that should be replicated to this target.
+              '';
+              example = [
+                "rpool/.../dev"
+                "rpool/.../docs"
+              ];
             };
-          }
-        )
-      );
 
-      description = ''
-        Mapping of target rift receivers to their sync configuration.
-      '';
-      example = ''
-        services.rift.sync.local.targets."rift-recv@nas" = {
-          datasets = [ "rpool/.../dev" "rpool/.../docs" ];
-        };
-      '';
-    };
+            name = lib.mkOption {
+              type = types.nullOr types.str;
+              description = ''Systemd unit name.'';
+              default = "rift-sync-${escapeUnitName name}";
+            };
 
+            filter = lib.mkOption {
+              type = types.str;
+              description = ''A regex matching the snapshots to be sent.'';
+              default = "rift_.*_.*(?<!frequently)$"; # all but frequently
+            };
+
+            pipes = lib.mkOption {
+              type = types.listOf types.str;
+              default = [ ];
+              example = [
+                "pv -p -e -t -r -a -b -s {size}"
+              ];
+              description = "Programs to pipe to between send and recv.";
+            };
+
+            zfsSendOptions = lib.mkOption {
+              type = types.listOf types.str;
+              default = [ ];
+              example = [ "-w" ];
+              description = "Options passed to zfs send.";
+            };
+
+            zfsRecvOptions = lib.mkOption {
+              type = types.listOf types.str;
+              default = [ ];
+              example = [
+                "-s"
+                "-u"
+                "-F"
+              ];
+              description = "Options passed to zfs recv.";
+            };
+
+            verbosity = lib.mkOption {
+              type = types.str;
+              description = ''Logging verbosity'';
+              default = "-v";
+            };
+
+            extraArgs = lib.mkOption {
+              type = types.listOf types.str;
+              default = [ ];
+              description = "Extra rift arguments.";
+            };
+
+            timerConfig = lib.mkOption {
+              type = types.attrs;
+              default = {
+                OnCalendar = "hourly";
+                RandomizedDelaySec = "10min";
+                Persistent = true;
+              };
+              description = "Systemd timer configuration.";
+            };
+          };
+        }
+      )
+    );
+
+    description = ''
+      Mapping of target rift receivers to their sync configuration.
+    '';
+    example = ''
+      services.rift.sync.local.targets."rift-recv@nas" = {
+        datasets = [ "rpool/.../dev" "rpool/.../docs" ];
+      };
+    '';
+    default = { };
   };
 
-  config = lib.mkIf cfg.enable {
-    environment.systemPackages = with pkgs; [
-      rift
-    ];
-
+  config = lib.mkIf config.services.rift.enable {
     users.groups."rift" = { };
     users.users."rift" = {
       group = "rift";
       isSystemUser = true;
     };
 
-    systemd.timers = lib.mapAttrs' mkSyncTimer cfg.targets;
-    systemd.services = lib.mapAttrs' mkSyncService cfg.targets;
+    systemd.timers = lib.mapAttrs' mkSyncTimer cfg;
+    systemd.services = lib.mapAttrs' mkSyncService cfg;
   };
 }

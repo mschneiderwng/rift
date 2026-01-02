@@ -206,18 +206,32 @@ The modules I created are available in the repository and their usage looks like
         ash.programs.sops.enable = true;         
         sops.secrets."rift/sync/key" = { };
 
-        # use the same schedule for all datasets
-        services.rift.snapshots = {
-            enable = true;
+        # enable rift
+        services.rift.enable = true;
+
+        # "system" is an identifier for the snapshot services.
+        services.rift.snapshots."system" = {
             onFailure = [ "notify-email@%n.service" ];
-            datasets = mapToAttr schedule datasets;
+            datasets = {
+                "rpool/user" = ["frequently" "daily" ];
+                "rpool/user/me" = ["frequently" "daily" "weekly" ];
+            };
+            # use the same schedule for all datasets 
+            # datasets = mapToAttr schedule datasets; 
         };
 
-        # use the same "shortterm" retention policy for all snapshots
-        services.rift.prune = {
-            enable = true;
+        
+        services.rift.prune."system" = {
             onFailure = [ "notify-email@%n.service" ];
-            datasets = mapToAttr shortterm datasets;
+            datasets = {
+                "rpool/user" = {
+                    frequently = 48 * 60 / 15;
+                    hourly = 24;
+                };
+                "rpool/user/me" = shortterm;
+            };
+            # use the same "shortterm" retention policy for all snapshots
+            # datasets = mapToAttr shortterm datasets;  
         };
 
         # ssh needs the remote public key
@@ -226,18 +240,16 @@ The modules I created are available in the repository and their usage looks like
         };
 
         # sync all snaphots to nas (excluding frequently snapshots)
+        # the user rift-recv on nas should have the zfs permission create,receive,mount 
         services.rift.sync.push = {
-            enable = true;
-            remotes = {
-                "rift-recv@nas:spool/backups/yoga" = {
-                    name = "nas";
-                    datasets = datasets;
-                    sshPrivateKey = config.sops.secrets."rift/sync/key".path;
-                    filter = ''rift_.*_.*(?<!frequently)$''; # send all but frequently snaps
-                    pipes = [ "mbuffer -r 1M" ];
-                    zfsSendOptions = ["-w"];
-                    zfsRecvOptions = ["-s" "-u" "-F"];
-                };
+            "rift-recv@nas:spool/backups/yoga" = {
+                name = "nas";
+                datasets = datasets;
+                sshPrivateKey = config.sops.secrets."rift/sync/key".path;
+                filter = ''rift_.*_.*(?<!frequently)$''; # send all but frequently snaps
+                pipes = [ "mbuffer -r 1M" ];
+                zfsSendOptions = ["-w"];
+                zfsRecvOptions = ["-s" "-u" "-F"];
             };
         };
     }

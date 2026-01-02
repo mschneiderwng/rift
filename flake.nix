@@ -269,11 +269,7 @@
         };
 
       flake.nixosModules.rift = {
-        imports = [
-          (import ./modules/snapshots self)
-          (import ./modules/prune self)
-          (import ./modules/sync self)
-        ];
+        imports = [ (import ./modules self) ];
       };
     };
 }
