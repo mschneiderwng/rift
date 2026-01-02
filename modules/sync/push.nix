@@ -9,30 +9,8 @@ let
   cfg = config.services.rift.sync.push;
   rift = "${self.packages.${pkgs.stdenv.hostPlatform.system}.rift}";
 
-  # Escape as required by: https://www.freedesktop.org/software/systemd/man/systemd.unit.html
-  escapeUnitName =
-    name:
-    lib.concatMapStrings (s: if lib.isList s then "-" else s) (
-      builtins.split "[^a-zA-Z0-9_.\\-]+" name
-    );
-
-  mkPermissions =
-    action: user: permissions: dataset:
-    lib.escapeShellArgs [
-      "-+/run/booted-system/sw/bin/zfs"
-      action
-      user
-      (lib.concatStringsSep "," permissions)
-      dataset
-    ];
-
-  allow =
-    user: perm: datasets:
-    (map (mkPermissions "allow" user perm) datasets);
-
-  unallow =
-    user: permissions: datasets:
-    (map (mkPermissions "unallow" user permissions) datasets);
+  common = (import ../common.nix { inherit config pkgs lib; });
+  inherit (common) allow unallow escapeUnitName;
 
   mkSync =
     cfg: remote: dataset:
@@ -72,11 +50,10 @@ let
   mkSyncService =
     remote: cfg:
     let
-      unitName = "rift-sync-${cfg.name}";
-      user = unitName;
+      user = cfg.name;
     in
     {
-      name = unitName;
+      name = cfg.name;
       value = {
         description = "rift sync service";
         after = [ "zfs.target" ];
@@ -87,11 +64,11 @@ let
           LoadCredential = [ "ssh_key:${cfg.sshPrivateKey}" ];
           User = user;
           Group = user;
-          StateDirectory = [ "rift/${unitName}" ];
+          StateDirectory = [ "rift/${cfg.name}" ];
           StateDirectoryMode = "700";
-          CacheDirectory = [ "rift/${unitName}" ];
+          CacheDirectory = [ "rift/${cfg.name}" ];
           CacheDirectoryMode = "700";
-          RuntimeDirectory = [ "rift/${unitName}" ];
+          RuntimeDirectory = [ "rift/${cfg.name}" ];
           RuntimeDirectoryMode = "700";
           Type = "oneshot";
           Restart = "on-failure";
@@ -153,7 +130,7 @@ let
     };
 
   mkSyncTimer = remote: cfg: {
-    name = "rift-sync-${cfg.name}";
+    name = cfg.name;
     value = {
       wantedBy = [ "timers.target" ];
       timerConfig = cfg.timerConfig;
@@ -187,7 +164,7 @@ in
               name = lib.mkOption {
                 type = lib.types.nullOr lib.types.str;
                 description = ''Systemd unit name.'';
-                default = lib.mkDefault (escapeUnitName remote);
+                default = lib.mkDefault "rift-sync-${escapeUnitName remote}";
               };
 
               sshPrivateKey = lib.mkOption {
@@ -269,7 +246,7 @@ in
         Mapping of remote rift receivers to their sync configuration.
       '';
       example = ''
-        services.rift.sync.remotes."rift-recv@nas" = {
+        services.rift.sync.push.remotes."rift-recv@nas" = {
           datasets = [ "rpool/.../dev" "rpool/.../docs" ];
         };
       '';

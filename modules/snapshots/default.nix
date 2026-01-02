@@ -9,30 +9,19 @@ let
   cfg = config.services.rift.snapshots;
   rift = "${self.packages.${pkgs.stdenv.hostPlatform.system}.rift}";
 
-  # Escape as required by: https://www.freedesktop.org/software/systemd/man/systemd.unit.html
-  escapeUnitName =
-    name:
-    lib.concatMapStrings (s: if lib.isList s then "-" else s) (
-      builtins.split "[^a-zA-Z0-9_.\\-]+" name
+  common = (import ../common.nix { inherit config pkgs lib; });
+  inherit (common) allow unallow escapeUnitName;
+
+  # Turn: { "rpool/user" = [ "daily" "weekly" ]; } into { daily = ["rpool/user"]; weekly = ["rpool/user"]; }
+  invert =
+    ds:
+    lib.mapAttrs (_: es: map (e: e.dataset) es) (
+      lib.groupBy (e: e.schedule) (
+        lib.concatLists (
+          lib.mapAttrsToList (dataset: schedules: map (schedule: { inherit schedule dataset; }) schedules) ds
+        )
+      )
     );
-
-  mkPermissions =
-    action: user: permissions: dataset:
-    lib.escapeShellArgs [
-      "-+/run/booted-system/sw/bin/zfs"
-      action
-      user
-      (lib.concatStringsSep "," permissions)
-      dataset
-    ];
-
-  allow =
-    user: perm: datasets:
-    (map (mkPermissions "allow" user perm) datasets);
-
-  unallow =
-    user: permissions: datasets:
-    (map (mkPermissions "unallow" user permissions) datasets);
 
   mkSnapshotTimer = schedule: timerConfig: {
     name = "rift-snapshot-${schedule}";
@@ -134,18 +123,6 @@ let
         };
       };
     };
-
-  # Turn: { "rpool/user" = [ "daily" "weekly" ]; } into { daily = ["rpool/user"]; weekly = ["rpool/user"]; }
-  invert =
-    ds:
-    lib.mapAttrs (_: es: map (e: e.dataset) es) (
-      lib.groupBy (e: e.schedule) (
-        lib.concatLists (
-          lib.mapAttrsToList (dataset: schedules: map (schedule: { inherit schedule dataset; }) schedules) ds
-        )
-      )
-    );
-
 in
 {
   options.services.rift.snapshots = {

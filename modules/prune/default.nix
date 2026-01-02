@@ -9,23 +9,8 @@ let
   cfg = config.services.rift.prune;
   rift = "${self.packages.${pkgs.stdenv.hostPlatform.system}.rift}";
 
-  mkPermissions =
-    action: user: permissions: dataset:
-    lib.escapeShellArgs [
-      "-+/run/booted-system/sw/bin/zfs"
-      action
-      user
-      (lib.concatStringsSep "," permissions)
-      dataset
-    ];
-
-  allow =
-    user: perm: datasets:
-    (map (mkPermissions "allow" user perm) datasets);
-
-  unallow =
-    user: permissions: datasets:
-    (map (mkPermissions "unallow" user permissions) datasets);
+  common = (import ../common.nix { inherit config pkgs lib; });
+  inherit (common) allow unallow attrKeys;
 
   mkPolicy =
     policy:
@@ -49,7 +34,6 @@ let
       ++ [ dataset ]
     );
 
-  attrKeys = attrs: lib.mapAttrsToList (name: value: name) attrs;
 in
 {
   options.services.rift.prune = {
