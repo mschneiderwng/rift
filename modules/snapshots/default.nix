@@ -120,7 +120,8 @@ let
             "~@resources"
           ];
           UMask = 0077;
-        };
+        }
+        // cfg.serviceConfig;
       };
     };
 in
@@ -179,6 +180,12 @@ in
         };
       };
       description = ''Mapping scheduls/tags to systemd timer configs.'';
+    };
+
+    serviceConfig = lib.mkOption {
+      type = lib.types.attrs;
+      default = { };
+      description = "systemd service configuration";
     };
 
     onFailure = lib.mkOption {
