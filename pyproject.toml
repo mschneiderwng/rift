@@ -1,6 +1,6 @@
 [project]
 name = "rift"
-version = "1.1"
+version = "1.2"
 description = "rift: zfs send, sync and prune"
 readme = "README.md"
 authors = [{ name = "Markus Schneider", email = "mschneider@linkdot.org" }]

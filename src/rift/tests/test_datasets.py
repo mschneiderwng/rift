@@ -228,6 +228,19 @@ def test_sync():
     assert_that({s.guid for s in target.snapshots()}, equal_to({s.guid for s in source.snapshots()}))
 
 
+def test_sync_bookmark_on_source():
+    poolA = InMemoryDataset("pool/A").snapshot("s1", "s2").bookmark("s1")
+    poolB = InMemoryDataset("pool/B").recv(poolA.find("pool/A@s1"))
+    poolA.destroy("s1")
+    fs = InMemoryFS.of(poolA, poolB)
+
+    source = Dataset(path="pool/A", runner=fs)
+    target = Dataset(path="pool/B", runner=fs)
+
+    sync(source, target, dry_run=False)
+    assert_that({s.guid for s in target.snapshots()}, equal_to({"uuid:pool/A@s2", "uuid:pool/A@s1"}))
+
+
 def test_sync_filter():
     poolA = InMemoryDataset("pool/A").snapshot("s1", "s2", "s3", "f4", "s5")
     poolB = InMemoryDataset("pool/B").recv(poolA.find("pool/A@s2"))

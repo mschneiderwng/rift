@@ -159,7 +159,7 @@ def sync(
 
         try:
             # find the same snapshot in source by comparing guids
-            latest = next(s for s in source.snapshots() if s.guid == latest_guid)
+            latest = next(s for s in source.snapshots() + source.bookmarks() if s.guid == latest_guid)
         except StopIteration:
             # there is an unexpected snapshot in the target dataset maybe inserted by a third party.
             # it needs manual rollback on the target side.
