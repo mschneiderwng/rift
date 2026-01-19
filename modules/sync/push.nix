@@ -145,7 +145,7 @@ in
 
     type = types.attrsOf (
       types.submodule (
-        { name, ... }:
+        { name, config, ... }:
         {
           options = {
 
@@ -175,7 +175,7 @@ in
               type = types.listOf types.str;
               description = "Options passed to ssh.";
               default = [
-                "ControlPath=/var/cache/rift/${name}/ssh-master"
+                "ControlPath=/var/cache/rift/${config.name}/ssh-master"
                 "ControlMaster=auto"
                 "ControlPersist=60"
                 "IdentityFile=\${CREDENTIALS_DIRECTORY}/ssh_key"
