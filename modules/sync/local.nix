@@ -128,7 +128,8 @@ let
             "~@resources"
           ];
           UMask = 0077;
-        };
+        }
+        // cfg.serviceConfig;
       };
     };
 
@@ -161,13 +162,13 @@ in
 
             name = lib.mkOption {
               type = types.nullOr types.str;
-              description = ''Systemd unit name.'';
+              description = "Systemd unit name.";
               default = "rift-sync-${escapeUnitName name}";
             };
 
             filter = lib.mkOption {
               type = types.str;
-              description = ''A regex matching the snapshots to be sent.'';
+              description = "A regex matching the snapshots to be sent.";
               default = "rift_.*_.*(?<!frequently)$"; # all but frequently
             };
 
@@ -200,7 +201,7 @@ in
 
             verbosity = lib.mkOption {
               type = types.str;
-              description = ''Logging verbosity'';
+              description = "Logging verbosity";
               default = "-v";
             };
 
@@ -208,6 +209,12 @@ in
               type = types.listOf types.str;
               default = [ ];
               description = "Extra rift arguments.";
+            };
+
+            serviceConfig = lib.mkOption {
+              type = types.attrs;
+              default = { };
+              description = "Systemd service configuration";
             };
 
             timerConfig = lib.mkOption {

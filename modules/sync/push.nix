@@ -126,7 +126,8 @@ let
             "~@resources"
           ];
           UMask = 0077;
-        };
+        }
+        // cfg.serviceConfig;
       };
     };
 
@@ -161,20 +162,20 @@ in
 
             name = lib.mkOption {
               type = types.nullOr types.str;
-              description = ''Systemd unit name.'';
+              description = "Systemd unit name.";
               default = "rift-sync-${escapeUnitName name}";
             };
 
             sshPrivateKey = lib.mkOption {
               type = types.str;
-              description = ''Passed to systemd LoadCredential.'';
+              description = "Passed to systemd LoadCredential.";
             };
 
             sshOptions = lib.mkOption {
               type = types.listOf types.str;
-              description = ''Options passed to ssh.'';
+              description = "Options passed to ssh.";
               default = [
-                "ControlPath=/var/cache/rift/rift-sync-${config.name}/ssh-master"
+                "ControlPath=/var/cache/rift/${name}/ssh-master"
                 "ControlMaster=auto"
                 "ControlPersist=60"
                 "IdentityFile=\${CREDENTIALS_DIRECTORY}/ssh_key"
@@ -183,7 +184,7 @@ in
 
             filter = lib.mkOption {
               type = types.str;
-              description = ''A regex matching the snapshots to be sent.'';
+              description = "A regex matching the snapshots to be sent.";
               default = "rift_.*_.*(?<!frequently)$"; # all but frequently
             };
 
@@ -216,7 +217,7 @@ in
 
             verbosity = lib.mkOption {
               type = types.str;
-              description = ''Logging verbosity'';
+              description = "Logging verbosity";
               default = "-v";
             };
 
@@ -224,6 +225,12 @@ in
               type = types.listOf types.str;
               default = [ ];
               description = "Extra rift arguments.";
+            };
+
+            serviceConfig = lib.mkOption {
+              type = types.attrs;
+              default = { };
+              description = "Systemd service configuration";
             };
 
             timerConfig = lib.mkOption {
